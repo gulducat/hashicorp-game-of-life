@@ -55,7 +55,7 @@ func (c *Cell) Neighbors(maxX int, maxY int) []Cell {
 
 func (c *Cell) Create() {
 	job := NewNomadJob(c)
-	CreateJob(job)
+	CreateJob(&job)
 }
 
 func (c *Cell) Exists() bool {

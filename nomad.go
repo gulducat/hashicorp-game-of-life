@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -94,22 +95,45 @@ func NewNomadJob(cell *Cell) NomadJob {
 	return job
 }
 
-func CreateJob(job NomadJob) {
-	url := "http://localhost:4646/v1/jobs"
-	spec, err := json.Marshal(job)
+func NewNomad() *Nomad {
+	addr := os.Getenv("NOMAD_ADDR")
+	if addr == "" {
+		addr = "http://localhost:4646"
+	}
+	return &Nomad{
+		BaseUrl: fmt.Sprintf("%s/v1", addr),
+	}
+}
+
+type Nomad struct {
+	BaseUrl string
+}
+
+func (n *Nomad) Request(method string, path string, data []byte) (int, string) {
+	url := fmt.Sprintf("%s%s", n.BaseUrl, path)
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(data))
 	if err != nil {
 		panic(err)
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(spec))
 	req.Header.Set("Content-Type", "application/json")
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
+
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	return resp.StatusCode, string(body)
+}
+
+func CreateJob(job *NomadJob) {
+	n := NewNomad()
+	spec, err := json.Marshal(job)
+	if err != nil {
+		panic(err)
+	}
+	status, body := n.Request("POST", "/jobs", spec)
+	fmt.Println(status, body)
 }
