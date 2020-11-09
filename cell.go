@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+func NewCell(name string) Cell {
+	x, y := Coords(name)
+	return Cell{x: x, y: y}
+}
+
 func Coords(name string) (int, int) {
 	// given "1-1", return: 1, 1
 	bits := strings.Split(name, "-")

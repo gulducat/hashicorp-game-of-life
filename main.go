@@ -4,27 +4,39 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 )
 
-var Name = os.Getenv("NOMAD_JOB_NAME")
+const MaxSize = 3
 
 func main() {
-	name := "0-0"
-	if Name != "" {
-		name = Name
+	name := os.Getenv("NOMAD_JOB_NAME")
+	if name == "" {
+		name = "0-0"
 	}
-	x, y := Coords(name)
-	self := Cell{x: x, y: y}
+	self := NewCell(name)
 	fmt.Printf("self: %v\n", self)
 
-	neighbors := self.Neighbors(3, 3)
+	if os.Args[1] == "check" {
+		// TODO: actually check something
+		os.Exit(0)
+	}
+
+	neighbors := self.Neighbors(MaxSize, MaxSize)
+
+	// dynamically generate neighbor jobs
 	for _, n := range neighbors {
+		// wait a tick to avoid multiple cells attempting to create the same neighbor.
+		randomSleep := rand.Intn(3) + 1
+		time.Sleep(time.Duration(randomSleep) * time.Second)
+
 		if !n.Exists() {
 			n.Create()
 		}
 	}
+
 	for {
 		// TODO: actual game of life rules
 		totalAlive := 0
