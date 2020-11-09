@@ -4,24 +4,38 @@ package main
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
+	"os"
+	"time"
 )
 
-func Coords(name string) (int, int) {
-	// given "1-1", return: 1, 1
-	bits := strings.Split(name, "-")
-	// ^ bits = ["1", "1"]
-	// make em integers for math reasons
-	x, _ := strconv.Atoi(bits[0])
-	y, _ := strconv.Atoi(bits[1])
-	return x, y
-}
+var Name = os.Getenv("NOMAD_JOB_NAME")
 
 func main() {
 	name := "0-0"
+	if Name != "" {
+		name = Name
+	}
 	x, y := Coords(name)
-	c := Cell{x: x, y: y}
-	fmt.Println(c)
-	fmt.Println(c.Neighbors(3, 3))
+	self := Cell{x: x, y: y}
+	fmt.Printf("self: %v\n", self)
+
+	neighbors := self.Neighbors(3, 3)
+	for _, n := range neighbors {
+		if !n.Exists() {
+			n.Create()
+		}
+	}
+	for {
+		// TODO: actual game of life rules
+		totalAlive := 0
+		for _, n := range neighbors {
+			if n.Alive() {
+				totalAlive += 1
+			}
+		}
+		if totalAlive == 3 {
+			self.Set(false)
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
