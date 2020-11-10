@@ -86,11 +86,31 @@ func Run() {
 			}
 		}
 
-		// lazy, and probably wrong.
-		if totalAlive == 2 || totalAlive == 3 {
+		//Any live cell with two or three live neighbors lives on to the next generation.
+		if self.aliveStatus == true && (totalAlive == 2 || totalAlive == 3) {
 			self.SetStatus(true)
-		} else {
+			continue
+		}
+
+		//Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+		if self.aliveStatus == false && totalAlive == 3 {
+			self.aliveStatus = true
+			self.SetStatus(true)
+			continue
+		}
+
+		//Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+		if self.aliveStatus == true && totalAlive < 2 {
+			self.aliveStatus = false
 			self.SetStatus(false)
+			continue
+		}
+
+		//Any live cell with more than three live neighbors dies, as if by overpopulation.
+		if self.aliveStatus == true && totalAlive > 3 {
+			self.aliveStatus = false
+			self.SetStatus(false)
+			continue
 		}
 	}
 }
