@@ -41,10 +41,10 @@ func (c *ConsulAPI) ServiceHealth(name string) bool {
 	if len(health) < 1 {
 		return false
 	}
-	if len(health[0].Checks) < 1 {
+	if len(health[0].Checks) < 2 {
 		return false
 	}
-	return health[0].Checks[0].Status == "passing"
+	return health[0].Checks[1].Status == "passing"
 }
 
 func (c *ConsulAPI) ServiceCatalog() map[string][]string {
