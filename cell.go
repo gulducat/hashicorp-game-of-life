@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -28,27 +30,27 @@ func (c *Cell) Name() string {
 	return fmt.Sprintf("%d-%d", c.x, c.y)
 }
 
-func (c *Cell) Neighbors(maxX int, maxY int) []Cell {
-	all := [8]Cell{
+func (c *Cell) Neighbors(maxX int, maxY int) []*Cell {
+	all := [8]*Cell{
 		// comments assuming cell "2-2"
 
 		// top row
-		Cell{x: c.x - 1, y: c.y - 1}, // 1-1
-		Cell{x: c.x, y: c.y - 1},     // 2-1
-		Cell{x: c.x + 1, y: c.y - 1}, // 3-1
+		&Cell{x: c.x - 1, y: c.y - 1}, // 1-1
+		&Cell{x: c.x, y: c.y - 1},     // 2-1
+		&Cell{x: c.x + 1, y: c.y - 1}, // 3-1
 
 		// middle row
-		Cell{x: c.x - 1, y: c.y}, // 1-2
+		&Cell{x: c.x - 1, y: c.y}, // 1-2
 		// 2-2 is self.
-		Cell{x: c.x + 1, y: c.y}, // 3-2
+		&Cell{x: c.x + 1, y: c.y}, // 3-2
 
 		// bottom row
-		Cell{x: c.x - 1, y: c.y + 1}, // 1-3
-		Cell{x: c.x, y: c.y + 1},     // 2-3
-		Cell{x: c.x + 1, y: c.y + 1}, // 3-3
+		&Cell{x: c.x - 1, y: c.y + 1}, // 1-3
+		&Cell{x: c.x, y: c.y + 1},     // 2-3
+		&Cell{x: c.x + 1, y: c.y + 1}, // 3-3
 
 	}
-	var valid []Cell
+	var valid []*Cell
 	for _, n := range all {
 		if n.x < 1 || n.y < 1 || n.x > maxX || n.y > maxY {
 			continue
@@ -58,22 +60,41 @@ func (c *Cell) Neighbors(maxX int, maxY int) []Cell {
 	return valid
 }
 
+func (c *Cell) GetJobspec() NomadJob {
+	var job NomadJob
+	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
+	json.Unmarshal([]byte(spec), &job)
+	return job
+}
+
 func (c *Cell) Create() {
-	job := NewNomadJob(c)
-	CreateJob(&job)
+	Nomad.CreateJob(c)
 }
 
 func (c *Cell) Exists() bool {
-	// TODO: check consul catalog
-	return false
+	return Consul.ServiceExists(c.Name()) // maybe dumb to check the whole catalog...
 }
 
 func (c *Cell) Alive() bool {
-	// TODO: check consul checks api
-	return true
+	healthy := Consul.ServiceHealth(c.Name())
+	log.Println(c.Name(), "healthy:", healthy)
+	return healthy
 }
 
-func (c *Cell) Set(alive bool) {
-	// TODO: store state in consul k/v
-	return
+// these are kinda weird, but we gotta store state somewhere,
+// so why not consul k/v? heh.
+
+func (c *Cell) SetStatus(alive bool) {
+	status := "alive"
+	if !alive {
+		status = "dead"
+	}
+	Consul.SetKV(c.Name(), status)
+}
+
+func (c *Cell) GetStatus() bool {
+	// return Consul.GetKV(c.Name()) == "alive"
+	status := Consul.GetKV(c.Name())
+	log.Println(status)
+	return status == "alive"
 }

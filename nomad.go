@@ -1,14 +1,38 @@
 package main
 
+// TODO: un-hard-code the bin path (hashicorp-game-of-life)
+
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
-	"strings"
 )
+
+func NewNomad() *NomadAPI {
+	addr := os.Getenv("NOMAD_ADDR")
+	if addr == "" {
+		addr = "http://localhost:4646"
+	}
+	return &NomadAPI{
+		api: &API{
+			BaseUrl: fmt.Sprintf("%s/v1", addr),
+		},
+	}
+}
+
+type NomadAPI struct {
+	api *API
+}
+
+func (n *NomadAPI) CreateJob(cell *Cell) {
+	job := cell.GetJobspec()
+	spec, err := json.Marshal(job)
+	if err != nil {
+		panic(err)
+	}
+	status, body := n.api.Post("/jobs", spec)
+	fmt.Println(status, string(body))
+}
 
 type NomadJob struct {
 	Job struct {
@@ -51,12 +75,10 @@ var DefaultJob = `{
 	  "Name": "0-0",
 	  "Type": "service",
 	  "Datacenters": ["dc1"],
-	  "TaskGroups": [
-		{
+	  "TaskGroups": [{
 		  "Name": "cell",
 		  "Count": 1,
-		  "Tasks": [
-			{
+		  "Tasks": [{
 			  "Name": "cell",
 			  "Driver": "raw_exec",
 			  "Config": {
@@ -64,12 +86,9 @@ var DefaultJob = `{
 				"args": ["run"]
 			  },
 			  "Env": null,
-			  "Services": [
-				{
+			  "Services": [{
 				  "Name": "0-0",
-				  "Tags": ["cell"],
-				  "Checks": [
-					{
+				  "Checks": [{
 					  "Name": "check",
 					  "Type": "script",
 					  "Command": "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/hashicorp-game-of-life",
@@ -77,63 +96,9 @@ var DefaultJob = `{
 					  "Interval": 10000000000,
 					  "Timeout": 20000000000,
 					  "InitialStatus": "passing"
-					}
-				  ]
-				}
-			  ]
-			}
-		  ]
-		}
-	  ]
+					}]
+				}]
+			}]
+		}]
 	}
   }`
-
-func NewNomadJob(cell *Cell) NomadJob {
-	var job NomadJob
-	spec := strings.Replace(DefaultJob, "0-0", cell.Name(), -1)
-	json.Unmarshal([]byte(spec), &job)
-	return job
-}
-
-func NewNomad() *Nomad {
-	addr := os.Getenv("NOMAD_ADDR")
-	if addr == "" {
-		addr = "http://localhost:4646"
-	}
-	return &Nomad{
-		BaseUrl: fmt.Sprintf("%s/v1", addr),
-	}
-}
-
-type Nomad struct {
-	BaseUrl string
-}
-
-func (n *Nomad) Request(method string, path string, data []byte) (int, string) {
-	url := fmt.Sprintf("%s%s", n.BaseUrl, path)
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(data))
-	if err != nil {
-		panic(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	return resp.StatusCode, string(body)
-}
-
-func CreateJob(job *NomadJob) {
-	n := NewNomad()
-	spec, err := json.Marshal(job)
-	if err != nil {
-		panic(err)
-	}
-	status, body := n.Request("POST", "/jobs", spec)
-	fmt.Println(status, body)
-}
