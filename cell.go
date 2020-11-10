@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -60,15 +62,15 @@ func (c *Cell) Neighbors(maxX int, maxY int) []*Cell {
 	return valid
 }
 
+func (c *Cell) Create() {
+	Nomad.CreateJob(c)
+}
+
 func (c *Cell) GetJobspec() NomadJob {
 	var job NomadJob
 	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
 	json.Unmarshal([]byte(spec), &job)
 	return job
-}
-
-func (c *Cell) Create() {
-	Nomad.CreateJob(c)
 }
 
 func (c *Cell) Exists() bool {
@@ -81,20 +83,36 @@ func (c *Cell) Alive() bool {
 	return healthy
 }
 
-// these are kinda weird, but we gotta store state somewhere,
-// so why not consul k/v? heh.
+func (c *Cell) TmpFile() string {
+	return fmt.Sprintf("%s/%s", TmpDir, c.Name())
+}
 
 func (c *Cell) SetStatus(alive bool) {
 	status := "alive"
 	if !alive {
 		status = "dead"
 	}
-	Consul.SetKV(c.Name(), status)
+	_ = os.Mkdir(TmpDir, 0755)
+	err := ioutil.WriteFile(c.TmpFile(), []byte(status), 0644)
+	if err != nil {
+		panic(err)
+	}
+	// Consul.SetKV(c.Name(), status)
 }
 
 func (c *Cell) GetStatus() bool {
 	// return Consul.GetKV(c.Name()) == "alive"
-	status := Consul.GetKV(c.Name())
-	log.Println(status)
-	return status == "alive"
+	// status := Consul.GetKV(c.Name())
+	// log.Println(status)
+	// return status == "alive"
+	bts, err := ioutil.ReadFile(c.TmpFile())
+	if err != nil {
+		log.Println("ERR", err)
+		return false
+	}
+	return string(bts) == "alive"
+}
+
+func (c *Cell) Destroy() {
+	Nomad.DeleteJob(c)
 }

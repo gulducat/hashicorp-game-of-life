@@ -34,6 +34,11 @@ func (n *NomadAPI) CreateJob(cell *Cell) {
 	fmt.Println(status, string(body))
 }
 
+func (n *NomadAPI) DeleteJob(cell *Cell) {
+	path := fmt.Sprintf("/job/%s?purge=true", cell.Name())
+	n.api.Delete(path)
+}
+
 type NomadJob struct {
 	Job struct {
 		ID          string   `json:"ID"`
@@ -69,7 +74,7 @@ type NomadJob struct {
 	} `json:"Job"`
 }
 
-var DefaultJob = `{
+var DefaultJob = fmt.Sprintf(`{
 	"Job": {
 	  "ID": "0-0",
 	  "Name": "0-0",
@@ -82,7 +87,7 @@ var DefaultJob = `{
 			  "Name": "cell",
 			  "Driver": "raw_exec",
 			  "Config": {
-				"command": "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/hashicorp-game-of-life",
+				"command": "%s/hashicorp-game-of-life",
 				"args": ["run"]
 			  },
 			  "Env": null,
@@ -91,7 +96,7 @@ var DefaultJob = `{
 				  "Checks": [{
 					  "Name": "check",
 					  "Type": "script",
-					  "Command": "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/hashicorp-game-of-life",
+					  "Command": "%s/hashicorp-game-of-life",
 					  "Args": ["check"],
 					  "Interval": 10000000000,
 					  "Timeout": 20000000000,
@@ -101,4 +106,4 @@ var DefaultJob = `{
 			}]
 		}]
 	}
-  }`
+  }`, ThisDir, ThisDir)
