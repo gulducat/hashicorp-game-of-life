@@ -4,7 +4,6 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -129,12 +128,6 @@ func Kill() {
 
 func EnsureJobs(neighbors []*Cell) {
 	for _, n := range neighbors {
-		// wait a bit to avoid multiple cells attempting to create the same neighbor.
-		randomSleep := rand.Intn(3) + 1
-		time.Sleep(time.Duration(randomSleep) * time.Second)
-
-		if !n.Exists() {
-			n.Create()
-		}
+		n.Create()
 	}
 }
