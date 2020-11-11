@@ -78,7 +78,8 @@ func Run() {
 			self.Destroy()
 		}
 
-		// TODO: actual game of life rules
+		selfStatus := self.GetStatus()
+
 		totalAlive := 0
 		for _, n := range neighbors {
 			if n.Alive() {
@@ -87,28 +88,24 @@ func Run() {
 		}
 
 		//Any live cell with two or three live neighbors lives on to the next generation.
-		if self.aliveStatus == true && (totalAlive == 2 || totalAlive == 3) {
-			self.SetStatus(true)
+		if selfStatus == true && (totalAlive == 2 || totalAlive == 3) {
 			continue
 		}
 
 		//Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
-		if self.aliveStatus == false && totalAlive == 3 {
-			self.aliveStatus = true
+		if selfStatus == false && totalAlive == 3 {
 			self.SetStatus(true)
 			continue
 		}
 
 		//Any live cell with fewer than two live neighbors dies, as if by underpopulation.
-		if self.aliveStatus == true && totalAlive < 2 {
-			self.aliveStatus = false
+		if selfStatus == true && totalAlive < 2 {
 			self.SetStatus(false)
 			continue
 		}
 
 		//Any live cell with more than three live neighbors dies, as if by overpopulation.
-		if self.aliveStatus == true && totalAlive > 3 {
-			self.aliveStatus = false
+		if selfStatus == true && totalAlive > 3 {
 			self.SetStatus(false)
 			continue
 		}

@@ -24,9 +24,8 @@ func Coords(name string) (int, int) {
 }
 
 type Cell struct {
-	x           int
-	y           int
-	aliveStatus bool
+	x int
+	y int
 }
 
 func (c *Cell) Name() string {
@@ -79,9 +78,9 @@ func (c *Cell) Exists() bool {
 }
 
 func (c *Cell) Alive() bool {
-	c.aliveStatus = Consul.ServiceHealth(c.Name())
-	log.Println(c.Name(), "healthy:", c.aliveStatus)
-	return c.aliveStatus
+	healthy := Consul.ServiceHealth(c.Name())
+	log.Println(c.Name(), "healthy:", healthy)
+	return healthy
 }
 
 func (c *Cell) TmpFile() string {
