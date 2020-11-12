@@ -30,7 +30,7 @@ ui:
 	while true; do \
 		./hashicorp-game-of-life ui 2>/dev/null ;\
 		echo -------- ;\
-		sleep 1 ;\
+		sleep 0.2 ;\
 	done
 
 killall:

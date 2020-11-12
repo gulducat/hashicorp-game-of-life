@@ -98,7 +98,7 @@ var DefaultJob = fmt.Sprintf(`{
 					  "Type": "script",
 					  "Command": "%s/hashicorp-game-of-life",
 					  "Args": ["check"],
-					  "Interval": 10000000000,
+					  "Interval": 1000000000,
 					  "Timeout": 20000000000,
 					  "InitialStatus": "passing"
 					}]

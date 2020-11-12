@@ -4,7 +4,6 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -78,7 +77,8 @@ func Run() {
 			self.Destroy()
 		}
 
-		// TODO: actual game of life rules
+		selfStatus := self.GetStatus()
+
 		totalAlive := 0
 		for _, n := range neighbors {
 			if n.Alive() {
@@ -86,11 +86,27 @@ func Run() {
 			}
 		}
 
-		// lazy, and probably wrong.
-		if totalAlive == 2 || totalAlive == 3 {
+		//Any live cell with two or three live neighbors lives on to the next generation.
+		if selfStatus == true && (totalAlive == 2 || totalAlive == 3) {
+			continue
+		}
+
+		//Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+		if selfStatus == false && totalAlive == 3 {
 			self.SetStatus(true)
-		} else {
+			continue
+		}
+
+		//Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+		if selfStatus == true && totalAlive < 2 {
 			self.SetStatus(false)
+			continue
+		}
+
+		//Any live cell with more than three live neighbors dies, as if by overpopulation.
+		if selfStatus == true && totalAlive > 3 {
+			self.SetStatus(false)
+			continue
 		}
 	}
 }
@@ -112,12 +128,6 @@ func Kill() {
 
 func EnsureJobs(neighbors []*Cell) {
 	for _, n := range neighbors {
-		// wait a bit to avoid multiple cells attempting to create the same neighbor.
-		randomSleep := rand.Intn(3) + 1
-		time.Sleep(time.Duration(randomSleep) * time.Second)
-
-		if !n.Exists() {
-			n.Create()
-		}
+		n.Create()
 	}
 }
