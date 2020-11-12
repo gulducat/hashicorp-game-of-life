@@ -117,7 +117,9 @@ func Run() {
 		//Any live cell with more than three live neighbors dies, as if by overpopulation.
 		if selfStatus == true && totalAlive > 3 {
 			self.SetStatus(false)
+			continue
 		}
+
 	}
 }
 
