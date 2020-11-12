@@ -55,7 +55,11 @@ type NomadJob struct {
 					Command string   `json:"command"`
 					Args    []string `json:"args"`
 				} `json:"Config"`
-				Env      interface{} `json:"Env"`
+				Env       interface{} `json:"Env"`
+				Resources struct {
+					CPU      int
+					MemoryMB int
+				} `json:"Resources"`
 				Services []struct {
 					Name   string   `json:"Name"`
 					Tags   []string `json:"Tags"`
@@ -87,23 +91,29 @@ var DefaultJob = fmt.Sprintf(`{
 			  "Name": "cell",
 			  "Driver": "raw_exec",
 			  "Config": {
-				"command": "%s/hashicorp-game-of-life",
+				"command": "hashicorp-game-of-life",
 				"args": ["run"]
 			  },
-			  "Env": null,
+			  "Env": {
+				  "CONSUL_HTTP_ADDR": "http://localhost:8500"
+			  },
+			  "Resources": {
+				"CPU": 60,
+				"MemoryMB": 35
+			  },
 			  "Services": [{
 				  "Name": "0-0",
 				  "Checks": [{
 					  "Name": "check",
 					  "Type": "script",
-					  "Command": "%s/hashicorp-game-of-life",
+					  "Command": "hashicorp-game-of-life",
 					  "Args": ["check"],
-					  "Interval": 10000000000,
-					  "Timeout": 20000000000,
+					  "Interval": 1000000000,
+					  "Timeout": 2000000000,
 					  "InitialStatus": "passing"
 					}]
 				}]
 			}]
 		}]
 	}
-  }`, ThisDir, ThisDir)
+  }`) //, ThisDir, ThisDir)

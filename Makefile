@@ -1,12 +1,16 @@
-# all: svc seed  # ctrl+c out of this kills all the things...
+export HOST ?= localhost
+export NOMAD_ADDR ?= http://$(HOST):4646
+export CONSUL_HTTP_ADDR ?= http://$(HOST):8500
+
+all: svc seed
 
 help:
 	egrep -o '^\w+[:]' $(MAKEFILE_LIST)
 
 svc: nomad consul
 	@echo
-	@echo 'Nomad:  http://localhost:4646/ui/'
-	@echo 'Consul: http://localhost:8500/ui/'
+	@echo 'Nomad:  $(NOMAD_ADDR)/ui/'
+	@echo 'Consul: $(CONSUL_HTTP_ADDR)/ui/'
 	@echo
 
 logs:
@@ -18,30 +22,55 @@ nomad: | logs
 
 consul: | logs
 	consul agent -dev > logs/consul.log &
+	# consul agent -dev >/dev/null &
 	while true; do sleep 0.5 ; consul members 2>/dev/null && break ; printf '.'; done
 
 build:
 	go build .
+	cp hashicorp-game-of-life /usr/local/bin/
+
+api:
+	nomad run api.nomad
 
 seed: build
 	./hashicorp-game-of-life seed
 
 ui:
 	while true; do \
-		./hashicorp-game-of-life ui 2>/dev/null ;\
+		curl -s http://$(HOST) ;\
 		echo -------- ;\
-		sleep 1 ;\
+		sleep 0.5 ;\
 	done
 
-killall:
-	for y in $(shell seq 1 5); do \
-	  for x in $(shell seq 1 5); do \
-	    NOMAD_JOB_NAME=$$x-$$y ./hashicorp-game-of-life kill ;\
-	  done \
+more:
+	./hashicorp-game-of-life more
+
+tail:
+	tail -f logs/*
+
+s3:
+	aws s3 cp hashicorp-game-of-life s3://game-of-life-hackathon/hashicorp-game-of-life
+
+upload:
+	GOARCH=amd64 GOOS=linux go build -o gol-linux .
+	for l in $(shell cat servers.list); do \
+	  rsync -avP gol-linux $$l:~/ ;\
+	  ssh $$l 'sudo cp gol-linux /usr/local/bin/hashicorp-game-of-life' ;\
+	done
+
+get-ip:
+	@nomad status api | awk '/running/ {print$$2}' | while read -r node; do \
+	  nomad node status -verbose $$node | awk '/public-ipv4/ {print$$NF}' ;\
+	done
+
+ui2:
+	while true; do \
+	  curl -s http://$(shell make get-ip 2>/dev/null) ;\
+	  echo --- ;\
 	done
 
 clean:
-	nomad stop -purge 0-0 && sleep 10 || true
+	nomad stop -purge 0-0 && sleep 5 || true
 	nomad status | awk '/service/ {print$$1}' | while read j; do \
 	  nomad stop -purge $$j || true ;\
 	done

@@ -95,3 +95,8 @@ func (c *ConsulAPI) SetKV(name string, value string) bool {
 	}
 	return true
 }
+
+func (c *ConsulAPI) DeleteKV(name string) {
+	path := fmt.Sprintf("/kv/%s", name)
+	c.api.Delete(path)
+}

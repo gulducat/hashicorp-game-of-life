@@ -3,9 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -92,27 +90,25 @@ func (c *Cell) SetStatus(alive bool) {
 	if !alive {
 		status = "dead"
 	}
-	_ = os.Mkdir(TmpDir, 0755)
-	err := ioutil.WriteFile(c.TmpFile(), []byte(status), 0644)
-	if err != nil {
-		panic(err)
-	}
-	// Consul.SetKV(c.Name(), status)
+	Consul.SetKV(c.Name(), status)
+	// _ = os.Mkdir(TmpDir, 0755)
+	// err := ioutil.WriteFile(c.TmpFile(), []byte(status), 0644)
+	// if err != nil {
+	// 	panic(err)
+	// }
 }
 
 func (c *Cell) GetStatus() bool {
-	// return Consul.GetKV(c.Name()) == "alive"
-	// status := Consul.GetKV(c.Name())
-	// log.Println(status)
-	// return status == "alive"
-	bts, err := ioutil.ReadFile(c.TmpFile())
-	if err != nil {
-		log.Println("ERR", err)
-		return false
-	}
-	return string(bts) == "alive"
+	return Consul.GetKV(c.Name()) == "alive"
+	// bts, err := ioutil.ReadFile(c.TmpFile())
+	// if err != nil {
+	// 	log.Println("ERR", err)
+	// 	return false
+	// }
+	// return string(bts) == "alive"
 }
 
 func (c *Cell) Destroy() {
 	Nomad.DeleteJob(c)
+	Consul.DeleteKV(c.Name())
 }
