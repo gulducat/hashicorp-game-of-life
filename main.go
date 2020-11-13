@@ -10,8 +10,12 @@ import (
 	"time"
 )
 
-const MaxWidth = 7
-const MaxHeight = 8
+// 15*16 = 240
+const MaxWidth = 22
+const MaxHeight = 16
+
+// const MaxWidth = 7
+// const MaxHeight = 8
 
 const TmpDir = "/tmp/hgol"
 

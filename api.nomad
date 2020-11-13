@@ -1,5 +1,6 @@
 job "api" {
   datacenters = ["dc1"]
+  # type        = "system"
   task "api" {
     driver = "raw_exec"
     config {

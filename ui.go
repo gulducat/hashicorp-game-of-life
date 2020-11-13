@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 )
 
 func ServeWeb() {
@@ -22,22 +23,56 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func StatusGrid() string {
-	var c Cell
-	var out string
+	out := ""
+	var mutex = &sync.Mutex{}
+
+	bits := make(map[string]string)
+	services := Consul.ServiceCatalog()
+
+	for y := 1; y <= MaxHeight; y++ {
+		wg := sync.WaitGroup{}
+		// concurrent-ize each row
+		for x := 1; x <= MaxWidth; x++ {
+			c := Cell{x: x, y: y}
+			wg.Add(1)
+
+			go func(cell *Cell) {
+				exists := false
+				for name, _ := range services {
+					if name == c.Name() {
+						exists = true
+						break
+					}
+				}
+				var val string
+				if exists {
+					if cell.Alive() {
+						val = "🟢"
+					} else {
+						val = "⭕️"
+					}
+				} else {
+					val = "🌑"
+
+				}
+				mutex.Lock()
+				bits[c.Name()] = val
+				mutex.Unlock()
+
+				wg.Done()
+			}(&c)
+
+		}
+		wg.Wait()
+	}
+
 	for y := 1; y <= MaxHeight; y++ {
 		for x := 1; x <= MaxWidth; x++ {
-			c = Cell{x: x, y: y}
-			if !c.Exists() {
-				out = fmt.Sprintf("%s 🌑", out)
-				continue
-			}
-			if c.Alive() {
-				out = fmt.Sprintf("%s 🟢", out)
-			} else {
-				out = fmt.Sprintf("%s ⭕️", out)
-			}
+			c := Cell{x: x, y: y}
+			out += bits[c.Name()]
+			// out += fmt.Sprintf(" %s", bits[c.Name()])
 		}
-		out = out + "\n"
+		out += "\n"
 	}
 	return out
 }

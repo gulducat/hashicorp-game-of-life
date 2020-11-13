@@ -39,7 +39,7 @@ ui:
 	while true; do \
 		curl -s http://$(HOST) ;\
 		echo -------- ;\
-		sleep 0.5 ;\
+		sleep 0.2 ;\
 	done
 
 more:
@@ -71,9 +71,10 @@ ui2:
 
 clean:
 	nomad stop -purge 0-0 && sleep 5 || true
-	nomad status | awk '/service/ {print$$1}' | while read j; do \
-	  nomad stop -purge $$j || true ;\
+	nomad status | awk '/system|service/ {print$$1}' | while read j; do \
+	  nomad stop -purge $$j ;\
 	done
+	curl -X PUT $(NOMAD_ADDR)/v1/system/gc
 
 kill:
 	pkill nomad consul hashicorp-game-of-life || true

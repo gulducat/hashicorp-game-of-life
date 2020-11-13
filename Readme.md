@@ -14,6 +14,7 @@ Pre-requisites: Go, Nomad, and Consul installed on your machine.
 ```shell
 make svc    # run nomad and consul
 make seed   # build and start "seed" job ("0-0")
+make api    # start api job
 make ui     # display terminal UI
 make clean  # stop all nomad jobs
 make kill   # kill nomad, consul, and hashicorp-game-of-life

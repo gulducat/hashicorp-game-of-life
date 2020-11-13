@@ -46,8 +46,11 @@ type NomadJob struct {
 		Type        string   `json:"Type"`
 		Datacenters []string `json:"Datacenters"`
 		TaskGroups  []struct {
-			Name  string `json:"Name"`
-			Count int    `json:"Count"`
+			Name          string `json:"Name"`
+			Count         int    `json:"Count"`
+			EphemeralDisk struct {
+				SizeMB int `json:"SizeMB"`
+			} `json:"EphemeralDisk"`
 			Tasks []struct {
 				Name   string `json:"Name"`
 				Driver string `json:"Driver"`
@@ -57,8 +60,9 @@ type NomadJob struct {
 				} `json:"Config"`
 				Env       interface{} `json:"Env"`
 				Resources struct {
-					CPU      int
-					MemoryMB int
+					CPU      int `json:"CPU"`
+					MemoryMB int `json:"MemoryMB"`
+					DiskMB   int `json:"DiskMB"`
 				} `json:"Resources"`
 				Services []struct {
 					Name   string   `json:"Name"`
@@ -87,6 +91,9 @@ var DefaultJob = fmt.Sprintf(`{
 	  "TaskGroups": [{
 		  "Name": "cell",
 		  "Count": 1,
+		  "EphemeralDisk": {
+			"SizeMB": 150
+		  },
 		  "Tasks": [{
 			  "Name": "cell",
 			  "Driver": "raw_exec",
@@ -99,7 +106,8 @@ var DefaultJob = fmt.Sprintf(`{
 			  },
 			  "Resources": {
 				"CPU": 60,
-				"MemoryMB": 35
+				"MemoryMB": 35,
+				"DiskMB": 10
 			  },
 			  "Services": [{
 				  "Name": "0-0",
@@ -116,4 +124,4 @@ var DefaultJob = fmt.Sprintf(`{
 			}]
 		}]
 	}
-  }`) //, ThisDir, ThisDir)
+  }`)
