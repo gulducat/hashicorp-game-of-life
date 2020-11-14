@@ -13,9 +13,6 @@ import (
 )
 
 type UI struct {
-	cellsRW sync.RWMutex
-	cells   map[string]*Cell
-
 	cacheRW    sync.RWMutex
 	cachedGrid []byte
 
@@ -23,9 +20,23 @@ type UI struct {
 }
 
 func NewUI(logger hclog.Logger, refreshRate time.Duration) (*UI, error) {
-	return &UI{
+	ui := &UI{
 		logger: logger.Named("ui"),
-	}, nil
+	}
+	ui.startGridWatcher(refreshRate)
+	return ui, nil
+}
+
+func (ui *UI) startGridWatcher(refreshRate time.Duration) {
+	go func() {
+		tick := time.Tick(refreshRate)
+		for range tick {
+			grid := StatusGrid()
+			ui.cacheRW.Lock()
+			ui.cachedGrid = grid
+			ui.cacheRW.Unlock()
+		}
+	}()
 }
 
 func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
