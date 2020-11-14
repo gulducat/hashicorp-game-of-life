@@ -1,78 +1,114 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"bytes"
 	"net/http"
+	"sort"
 	"sync"
+	"time"
+
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/hashicorp/go-hclog"
 )
 
-func ServeWeb() {
-	http.Handle("/", new(handler))
-	log.Fatal(http.ListenAndServe(":80", nil))
+type UI struct {
+	cellsRW sync.RWMutex
+	cells   map[string]*Cell
+
+	cacheRW    sync.RWMutex
+	cachedGrid []byte
+
+	logger hclog.Logger
 }
 
-type handler struct{}
-
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, StatusGrid())
-
-	// log for some reason
-	fmt.Printf("%s %s %s %s \"%s\"\n",
-		r.RemoteAddr, r.Host, r.Method, r.URL, r.UserAgent())
+func NewUI(logger hclog.Logger, refreshRate time.Duration) (*UI, error) {
+	return &UI{
+		logger: logger.Named("ui"),
+	}, nil
 }
 
-func StatusGrid() string {
-	out := ""
-	var mutex = &sync.Mutex{}
+func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
+	ui.cacheRW.RLock()
+	w.Write(ui.cachedGrid)
+	ui.cacheRW.RUnlock()
+}
 
-	bits := make(map[string]string)
+func (ui *UI) ListenAndServe(address string) error {
+	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Get("/", ui.HandleGet)
+	return http.ListenAndServe(address, r)
+}
+
+type cellStatus struct {
+	cell   *Cell
+	status string
+}
+
+// cellStatuses is used sort cellStatus types via the sort interface
+type cellStatuses []*cellStatus
+
+func (cs cellStatuses) Len() int {
+	return len(cs)
+}
+
+func (cs cellStatuses) Swap(i, j int) {
+	cs[i], cs[j] = cs[j], cs[i]
+}
+
+func (cs cellStatuses) Less(i, j int) bool {
+	iX, iY := cs[i].cell.x, cs[i].cell.y
+	jX, jY := cs[j].cell.x, cs[j].cell.y
+	return iX < jX || (iX == jX && iY < jY)
+}
+
+func StatusGrid() []byte {
+	var wg sync.WaitGroup
 	services := Consul.ServiceCatalog()
-
+	cellStatCh := make(chan *cellStatus, 4)
 	for y := 1; y <= MaxHeight; y++ {
-		wg := sync.WaitGroup{}
-		// concurrent-ize each row
 		for x := 1; x <= MaxWidth; x++ {
-			c := Cell{x: x, y: y}
 			wg.Add(1)
-
-			go func(cell *Cell) {
-				exists := false
-				for name, _ := range services {
+			c := &Cell{x: x, y: y}
+			go func(c *Cell) {
+				defer wg.Done()
+				var exists bool
+				for name := range services {
 					if name == c.Name() {
 						exists = true
 						break
 					}
 				}
-				var val string
+				val := "🌑"
 				if exists {
-					if cell.Alive() {
+					if c.Alive() {
 						val = "🟢"
 					} else {
 						val = "⭕️"
 					}
-				} else {
-					val = "🌑"
-
 				}
-				mutex.Lock()
-				bits[c.Name()] = val
-				mutex.Unlock()
-
-				wg.Done()
-			}(&c)
+				cellStatCh <- &cellStatus{
+					cell:   c,
+					status: val,
+				}
+			}(c)
 
 		}
 		wg.Wait()
+		close(cellStatCh)
 	}
 
-	for y := 1; y <= MaxHeight; y++ {
-		for x := 1; x <= MaxWidth; x++ {
-			c := Cell{x: x, y: y}
-			out += bits[c.Name()]
-			// out += fmt.Sprintf(" %s", bits[c.Name()])
-		}
-		out += "\n"
+	cellStats := make(cellStatuses, 0, MaxHeight*MaxWidth)
+	for cs := range cellStatCh {
+		cellStats = append(cellStats, cs)
 	}
-	return out
+	sort.Sort(cellStats)
+	var out bytes.Buffer
+	for _, cs := range cellStats {
+		out.WriteString(cs.status)
+	}
+	out.WriteString("\n")
+	return out.Bytes()
 }
