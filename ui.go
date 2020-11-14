@@ -27,14 +27,19 @@ func NewUI(logger hclog.Logger, refreshRate time.Duration) (*UI, error) {
 	return ui, nil
 }
 
+func (ui *UI) updateGrid() {
+	grid := StatusGrid()
+	ui.cacheRW.Lock()
+	ui.cachedGrid = grid
+	ui.cacheRW.Unlock()
+}
+
 func (ui *UI) startGridWatcher(refreshRate time.Duration) {
+	ui.updateGrid()
 	go func() {
 		tick := time.Tick(refreshRate)
 		for range tick {
-			grid := StatusGrid()
-			ui.cacheRW.Lock()
-			ui.cachedGrid = grid
-			ui.cacheRW.Unlock()
+			ui.updateGrid()
 		}
 	}()
 }
