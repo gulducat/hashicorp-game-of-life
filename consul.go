@@ -31,7 +31,7 @@ type ServiceHealth []struct {
 
 func (c *ConsulAPI) ServiceHealth(name string) bool {
 	var health ServiceHealth
-	path := fmt.Sprintf("/health/service/%s", name)
+	path := fmt.Sprintf("/health/service/%s?stale", name)
 	code, body := c.api.Get(path)
 	if code != 200 {
 		return false
