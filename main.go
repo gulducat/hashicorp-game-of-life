@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 // 15*16 = 240
@@ -20,7 +22,8 @@ const MaxHeight = 16
 const TmpDir = "/tmp/hgol"
 
 // lazy "global" api clients
-var Consul = NewConsul()
+var logger = hclog.New(nil)
+var Consul = NewConsul(logger)
 var Nomad = NewNomad()
 
 // more lazy globals

@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/hashicorp/go-hclog"
 )
 
-func NewConsul() *ConsulAPI {
+func NewConsul(logger hclog.Logger) *ConsulAPI {
 	addr := os.Getenv("CONSUL_HTTP_ADDR")
 	if addr == "" {
 		addr = "http://localhost:8500"
 	}
+	api := NewAPI(fmt.Sprintf("%s/v1", addr), logger)
 	return &ConsulAPI{
-		api: &API{
-			BaseUrl: fmt.Sprintf("%s/v1", addr),
-		},
+		api: api,
 	}
 }
 
