@@ -22,7 +22,8 @@ const MaxHeight = 16
 const TmpDir = "/tmp/hgol"
 
 // lazy "global" api clients
-var Consul = NewConsul()
+var logger = hclog.New(nil)
+var Consul = NewConsul(logger)
 var Nomad = NewNomad()
 
 // more lazy globals
