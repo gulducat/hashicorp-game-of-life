@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/hashicorp/go-hclog"
 )
 
-func NewConsul() *ConsulAPI {
+func NewConsul(logger hclog.Logger) *ConsulAPI {
 	addr := os.Getenv("CONSUL_HTTP_ADDR")
 	if addr == "" {
 		addr = "http://localhost:8500"
 	}
+	api := NewAPI(fmt.Sprintf("%s/v1", addr), logger)
 	return &ConsulAPI{
-		api: &API{
-			BaseUrl: fmt.Sprintf("%s/v1", addr),
-		},
+		api: api,
 	}
 }
 
@@ -31,7 +32,7 @@ type ServiceHealth []struct {
 
 func (c *ConsulAPI) ServiceHealth(name string) bool {
 	var health ServiceHealth
-	path := fmt.Sprintf("/health/service/%s", name)
+	path := fmt.Sprintf("/health/service/%s?stale", name)
 	code, body := c.api.Get(path)
 	if code != 200 {
 		return false
