@@ -84,11 +84,11 @@ func StatusGrid() []byte {
 	var wg sync.WaitGroup
 	services := Consul.ServiceCatalog()
 	cellStatCh := make(chan *cellStatus, 4)
-	for y := 1; y <= MaxHeight; y++ {
-		for x := 1; x <= MaxWidth; x++ {
-			wg.Add(1)
-			c := &Cell{x: x, y: y}
-			go func(c *Cell) {
+	for x := 1; x <= MaxWidth; x++ {
+		go func(x int) {
+			for y := 1; y <= MaxHeight; y++ {
+				wg.Add(1)
+				c := &Cell{x: x, y: y}
 				defer wg.Done()
 				var exists bool
 				for name := range services {
@@ -109,9 +109,8 @@ func StatusGrid() []byte {
 					cell:   c,
 					status: val,
 				}
-			}(c)
-
-		}
+			}
+		}(x)
 		wg.Wait()
 		close(cellStatCh)
 	}
