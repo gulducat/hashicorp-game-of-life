@@ -40,12 +40,16 @@ func main() {
 		Run()
 
 	case "api":
+		logger.Info("running api")
 		ui, err := NewUI(logger, time.Second)
 		if err != nil {
 			logger.Error(err.Error())
 			os.Exit(1)
 		}
-		ui.ListenAndServe(":80")
+		logger.Info("listening on " + ":80")
+		if err := ui.ListenAndServe(":80"); err != nil {
+			logger.Error(err.Error())
+		}
 
 	case "seed":
 		seed := NewCell("0-0")

@@ -35,8 +35,8 @@ func (ui *UI) updateGrid() {
 }
 
 func (ui *UI) startGridWatcher(refreshRate time.Duration) {
-	ui.updateGrid()
 	go func() {
+		ui.updateGrid()
 		tick := time.Tick(refreshRate)
 		for range tick {
 			ui.updateGrid()
@@ -46,7 +46,9 @@ func (ui *UI) startGridWatcher(refreshRate time.Duration) {
 
 func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
 	ui.cacheRW.RLock()
-	w.Write(ui.cachedGrid)
+	if _, err := w.Write(ui.cachedGrid); err != nil {
+		ui.logger.Error(err.Error())
+	}
 	ui.cacheRW.RUnlock()
 }
 
@@ -83,13 +85,13 @@ func (cs cellStatuses) Less(i, j int) bool {
 func StatusGrid() []byte {
 	var wg sync.WaitGroup
 	services := Consul.ServiceCatalog()
-	cellStatCh := make(chan *cellStatus, 4)
+	cellStatCh := make(chan *cellStatus, MaxHeight*MaxWidth)
 	for x := 1; x <= MaxWidth; x++ {
+		wg.Add(1)
 		go func(x int) {
+			defer wg.Done()
 			for y := 1; y <= MaxHeight; y++ {
-				wg.Add(1)
 				c := &Cell{x: x, y: y}
-				defer wg.Done()
 				var exists bool
 				for name := range services {
 					if name == c.Name() {
@@ -111,9 +113,9 @@ func StatusGrid() []byte {
 				}
 			}
 		}(x)
-		wg.Wait()
-		close(cellStatCh)
 	}
+	wg.Wait()
+	close(cellStatCh)
 
 	cellStats := make(cellStatuses, 0, MaxHeight*MaxWidth)
 	for cs := range cellStatCh {
@@ -121,9 +123,13 @@ func StatusGrid() []byte {
 	}
 	sort.Sort(cellStats)
 	var out bytes.Buffer
+	var count int
 	for _, cs := range cellStats {
 		out.WriteString(cs.status)
+		count++
+		if count%MaxWidth == 0 {
+			out.WriteString("\n")
+		}
 	}
-	out.WriteString("\n")
 	return out.Bytes()
 }
