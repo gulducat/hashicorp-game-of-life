@@ -5,18 +5,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/hashicorp/go-hclog"
 )
 
-func NewNomad() *NomadAPI {
+func NewNomad(logger hclog.Logger) *NomadAPI {
 	addr := os.Getenv("NOMAD_ADDR")
 	if addr == "" {
 		addr = "http://localhost:4646"
 	}
+	api := NewAPI(fmt.Sprintf("%s/v1", addr), logger)
 	return &NomadAPI{
-		api: &API{
-			BaseUrl: fmt.Sprintf("%s/v1", addr),
-		},
+		api: api,
 	}
 }
 
