@@ -30,6 +30,7 @@ var Nomad = NewNomad()
 // var ThisDir, _ = filepath.Abs(filepath.Dir(os.Args[0]))
 
 func main() {
+	logger := hclog.New(nil)
 	arg := "seed"
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -40,7 +41,16 @@ func main() {
 		Run()
 
 	case "api":
-		ServeWeb()
+		logger.Info("running api")
+		ui, err := NewUI(logger, time.Second)
+		if err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
+		logger.Info("listening on " + ":80")
+		if err := ui.ListenAndServe(":80"); err != nil {
+			logger.Error(err.Error())
+		}
 
 	case "seed":
 		seed := NewCell("0-0")
