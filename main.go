@@ -67,6 +67,13 @@ func main() {
 	case "more":
 		Reset()
 
+	case "dnstest": // TODO: remove me
+		d := NewDNS()
+		addr, err := d.GetServiceAddr("api")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(addr)
 	}
 }
 
