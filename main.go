@@ -68,12 +68,13 @@ func main() {
 		Reset()
 
 	case "dnstest": // TODO: remove me
-		d := NewDNS()
-		addr, err := d.GetServiceAddr("api")
+		c := NewConsulDNS()
+		svc := "0-0"
+		addr, err := c.GetServiceAddr(svc)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(addr)
+		fmt.Println(svc, addr)
 	}
 }
 

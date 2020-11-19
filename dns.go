@@ -9,8 +9,8 @@ import (
 const consulDnsAddr = "127.0.0.1:8600"
 const datacenter = "dc1"
 
-func NewDNS() *DNSer {
-	return &DNSer{
+func NewConsulDNS() *ConsulDNS {
+	return &ConsulDNS{
 		r: &net.Resolver{
 			PreferGo: true,
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -22,15 +22,15 @@ func NewDNS() *DNSer {
 	}
 }
 
-type DNSer struct {
+type ConsulDNS struct {
 	r   *net.Resolver
 	ctx context.Context
 }
 
-func (d *DNSer) GetServiceAddr(serviceName string) (addr string, err error) {
+func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) {
 	name := fmt.Sprintf("%s.service.%s.consul", serviceName, datacenter)
 
-	_, addrs, err := d.r.LookupSRV(d.ctx, "", "", name)
+	_, addrs, err := c.r.LookupSRV(c.ctx, "", "", name)
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +42,7 @@ func (d *DNSer) GetServiceAddr(serviceName string) (addr string, err error) {
 	target := addrs[0].Target
 	port := addrs[0].Port
 
-	ips, err := d.r.LookupHost(d.ctx, target)
+	ips, err := c.r.LookupHost(c.ctx, target)
 	if err != nil {
 		return "", err
 	}
