@@ -24,7 +24,7 @@ const TmpDir = "/tmp/hgol"
 // lazy "global" api clients
 var logger = hclog.New(nil)
 var Consul = NewConsul(logger)
-var Nomad = NewNomad()
+var Nomad = NewNomad(logger)
 
 // more lazy globals
 // var ThisDir, _ = filepath.Abs(filepath.Dir(os.Args[0]))
