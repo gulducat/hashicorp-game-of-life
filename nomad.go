@@ -64,11 +64,17 @@ type NomadJob struct {
 					CPU      int `json:"CPU"`
 					MemoryMB int `json:"MemoryMB"`
 					DiskMB   int `json:"DiskMB"`
+					Networks []struct {
+						DynamicPorts []struct {
+							Label string `json:"Label"`
+						} `json:"DynamicPorts"`
+					} `json:"Networks"`
 				} `json:"Resources"`
 				Services []struct {
-					Name   string   `json:"Name"`
-					Tags   []string `json:"Tags"`
-					Checks []struct {
+					Name      string   `json:"Name"`
+					PortLabel string   `json:"PortLabel"`
+					Tags      []string `json:"Tags"`
+					Checks    []struct {
 						Name          string   `json:"Name"`
 						Type          string   `json:"Type"`
 						Command       string   `json:"Command"`
@@ -108,10 +114,16 @@ var DefaultJob = fmt.Sprintf(`{
 			  "Resources": {
 				"CPU": 60,
 				"MemoryMB": 35,
-				"DiskMB": 10
+				"DiskMB": 10,
+				"Networks": [{
+					"DynamicPorts": [{
+						"Label": "udp"
+					}]
+				}]
 			  },
 			  "Services": [{
 				  "Name": "0-0",
+				  "PortLabel": "udp",
 				  "Checks": [{
 					  "Name": "check",
 					  "Type": "script",
