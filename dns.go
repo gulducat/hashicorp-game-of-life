@@ -32,7 +32,7 @@ func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) 
 
 	_, addrs, err := c.r.LookupSRV(c.ctx, "", "", name)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Error getting SRV record for %s: %w", name, err)
 	}
 	if len(addrs) < 1 {
 		return "", fmt.Errorf("%s: got no addrs :(", name)
@@ -44,7 +44,7 @@ func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) 
 
 	ips, err := c.r.LookupHost(c.ctx, target)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Error looking up host for %s: %w", target, err)
 	}
 	if len(ips) < 1 {
 		return "", fmt.Errorf("%s: got no ips :(", target)
