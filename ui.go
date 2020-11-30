@@ -60,72 +60,45 @@ func (ui *UI) ListenAndServe(address string) error {
 	return http.ListenAndServe(address, r)
 }
 
-type cellStatus struct {
-	cell   *Cell
-	status string
-}
-
-// cellStatuses is used sort cellStatus types via the sort interface
-type cellStatuses []*cellStatus
-
-func (cs cellStatuses) Len() int {
-	return len(cs)
-}
-
-func (cs cellStatuses) Swap(i, j int) {
-	cs[i], cs[j] = cs[j], cs[i]
-}
-
-func (cs cellStatuses) Less(i, j int) bool {
-	iX, iY := cs[i].cell.x, cs[i].cell.y
-	jX, jY := cs[j].cell.x, cs[j].cell.y
-	return iX < jX || (iX == jX && iY < jY)
-}
-
 func StatusGrid() []byte {
 	var wg sync.WaitGroup
 	services := Consul.ServiceCatalog()
-	cellStatCh := make(chan *cellStatus, MaxHeight*MaxWidth)
+	cellStatCh := make(chan *CellStatus, MaxHeight*MaxWidth)
 	for x := 1; x <= MaxWidth; x++ {
 		wg.Add(1)
 		go func(x int) {
 			defer wg.Done()
 			for y := 1; y <= MaxHeight; y++ {
-				c := &Cell{x: x, y: y}
-				var exists bool
+				c := NewCellStatus(x, y)
 				for name := range services {
 					if name == c.Name() {
-						exists = true
-						break
+						c.GetStatus()
 					}
 				}
-				val := "🌑"
-				if exists {
-					if c.Alive() {
-						val = "🟢"
-					} else {
-						val = "⭕️"
-					}
-				}
-				cellStatCh <- &cellStatus{
-					cell:   c,
-					status: val,
-				}
+				cellStatCh <- c
 			}
 		}(x)
 	}
 	wg.Wait()
 	close(cellStatCh)
 
-	cellStats := make(cellStatuses, 0, MaxHeight*MaxWidth)
+	cellStats := make([]*CellStatus, 0, MaxHeight*MaxWidth)
 	for cs := range cellStatCh {
 		cellStats = append(cellStats, cs)
 	}
-	sort.Sort(cellStats)
+	sort.Slice(cellStats, func(i, j int) bool {
+		if cellStats[i].x < cellStats[j].x {
+			return true
+		}
+		if cellStats[i].x == cellStats[j].x && cellStats[i].y < cellStats[j].y {
+			return true
+		}
+		return false
+	})
 	var out bytes.Buffer
 	var count int
 	for _, cs := range cellStats {
-		out.WriteString(cs.status)
+		out.WriteString(cs.status.String())
 		count++
 		if count%MaxWidth == 0 {
 			out.WriteString("\n")

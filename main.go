@@ -3,6 +3,7 @@ package main
 // TODO: api (or whatever) should represent all the cells as a multi-dimensional array
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -13,8 +14,10 @@ import (
 )
 
 // 15*16 = 240
-const MaxWidth = 22
-const MaxHeight = 16
+var (
+	MaxWidth  = *flag.Int("max_width", 8, "set the max width")
+	MaxHeight = *flag.Int("max_height", 8, "set the max height")
+)
 
 // const MaxWidth = 7
 // const MaxHeight = 8
@@ -31,6 +34,7 @@ var Nomad = NewNomad()
 
 func main() {
 	logger := hclog.New(nil)
+	flag.Parse()
 	arg := "seed"
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
@@ -53,12 +57,12 @@ func main() {
 		}
 
 	case "seed":
-		seed := NewCell("0-0")
-		seed.Create()
+		seed := NewCellRunner(0, 0, logger)
+		Nomad.CreateJob(seed.CellStatus)
 
 	case "check":
 		self := GetSelf()
-		if self.GetStatus() {
+		if self.GetStatus() == Alive {
 			os.Exit(0)
 		} else {
 			os.Exit(1)
@@ -70,17 +74,17 @@ func main() {
 	}
 }
 
-func GetSelf() *Cell {
+func GetSelf() *CellRunner {
 	name := os.Getenv("NOMAD_JOB_NAME")
 	if name == "" {
 		panic("aint a nomad job")
 	}
-	self := NewCell(name)
-	return &self
+	x, y := Coords(name)
+	return NewCellRunner(x, y, logger)
 }
 
 func Run() {
-	seed := NewCell("0-0")
+	seed := NewCellRunner(0, 0, logger)
 
 	self := GetSelf() // TODO: rename "self" ?
 	log.Printf("self: %v\n", self)
@@ -109,30 +113,30 @@ func Run() {
 
 		totalAlive := 0
 		for _, n := range neighbors {
-			if n.Alive() {
+			if n.status == Alive {
 				totalAlive += 1
 			}
 		}
 
 		//Any live cell with two or three live neighbors lives on to the next generation.
-		if selfStatus == true && (totalAlive == 2 || totalAlive == 3) {
+		if selfStatus == Alive && (totalAlive == 2 || totalAlive == 3) {
 			continue
 		}
 
 		//Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
-		if selfStatus == false && totalAlive == 3 {
+		if selfStatus == Dead && totalAlive == 3 {
 			self.SetStatus(true)
 			continue
 		}
 
 		//Any live cell with fewer than two live neighbors dies, as if by underpopulation.
-		if selfStatus == true && totalAlive < 2 {
+		if selfStatus == Alive && totalAlive < 2 {
 			self.SetStatus(false)
 			continue
 		}
 
 		//Any live cell with more than three live neighbors dies, as if by overpopulation.
-		if selfStatus == true && totalAlive > 3 {
+		if selfStatus == Alive && totalAlive > 3 {
 			self.SetStatus(false)
 			continue
 		}
@@ -140,18 +144,18 @@ func Run() {
 	}
 }
 
-func EnsureJobs(neighbors []*Cell) {
+func EnsureJobs(neighbors map[string]*CellStatus) {
 	for _, n := range neighbors {
 		fmt.Println("Creating job:", n.Name())
-		n.Create()
+		Nomad.CreateJob(n)
 	}
 }
 
 func Reset() {
-	var c Cell
+	nullLog := hclog.NewNullLogger()
 	for y := 1; y <= MaxHeight; y++ {
 		for x := 1; x <= MaxWidth; x++ {
-			c = Cell{x: x, y: y}
+			c := NewCellRunner(x, y, nullLog)
 			c.SetStatus(true)
 		}
 	}

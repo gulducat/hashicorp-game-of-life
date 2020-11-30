@@ -3,15 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
-)
+	"sync"
 
-func NewCell(name string) Cell {
-	x, y := Coords(name)
-	return Cell{x: x, y: y}
-}
+	"github.com/hashicorp/go-hclog"
+)
 
 func Coords(name string) (int, int) {
 	// given "1-1", return: 1, 1
@@ -21,71 +18,102 @@ func Coords(name string) (int, int) {
 	return x, y
 }
 
-type Cell struct {
-	x int
-	y int
+type CellStatus struct {
+	rw     *sync.RWMutex
+	x      int
+	y      int
+	name   string
+	status Status
 }
 
-func (c *Cell) Name() string {
-	return fmt.Sprintf("%d-%d", c.x, c.y)
-}
-
-func (c *Cell) Neighbors(maxX int, maxY int) []*Cell {
-	all := [8]*Cell{
-		// comments assuming cell "2-2"
-
-		// top row
-		&Cell{x: c.x - 1, y: c.y - 1}, // 1-1
-		&Cell{x: c.x, y: c.y - 1},     // 2-1
-		&Cell{x: c.x + 1, y: c.y - 1}, // 3-1
-
-		// middle row
-		&Cell{x: c.x - 1, y: c.y}, // 1-2
-		// 2-2 is self.
-		&Cell{x: c.x + 1, y: c.y}, // 3-2
-
-		// bottom row
-		&Cell{x: c.x - 1, y: c.y + 1}, // 1-3
-		&Cell{x: c.x, y: c.y + 1},     // 2-3
-		&Cell{x: c.x + 1, y: c.y + 1}, // 3-3
-
+func NewCellStatus(x, y int) *CellStatus {
+	return &CellStatus{
+		rw: new(sync.RWMutex),
+		x:  x,
+		y:  y,
 	}
-	var valid []*Cell
-	for _, n := range all {
-		if n.x < 1 || n.y < 1 || n.x > maxX || n.y > maxY {
-			continue
+}
+
+func (c *CellStatus) Name() string {
+	if c.name == "" {
+		c.name = fmt.Sprintf("%d-%d", c.x, c.y)
+	}
+	return c.name
+}
+
+func (c *CellStatus) Neighbors(maxX int, maxY int) map[string]*CellStatus {
+	neighbors := make(map[string]*CellStatus)
+	for x := c.x - 1; x <= c.x+1; x++ {
+		for y := c.y - 1; y <= c.y+1; y++ {
+			if x < 1 || y < 1 || x > maxX || y > maxY {
+				continue
+			}
+			if x == c.x && y == c.y {
+				continue
+			}
+			neighbor := &CellStatus{
+				x: x,
+				y: y,
+			}
+			neighbors[neighbor.Name()] = neighbor
 		}
-		valid = append(valid, n)
 	}
-	return valid
+	return neighbors
 }
 
-func (c *Cell) Create() {
-	Nomad.CreateJob(c)
+func (c *CellStatus) GetStatus() Status {
+	var status Status
+	consulStatus := Consul.GetKV(c.Name())
+	switch consulStatus {
+	case "alive":
+		status = Alive
+	case "dead":
+		status = Dead
+	default:
+		status = Nonexistent
+	}
+	c.rw.Lock()
+	c.status = status
+	c.rw.Unlock()
+	return status
 }
 
-func (c *Cell) GetJobspec() NomadJob {
+type CellRunner struct {
+	*CellStatus
+	neighbors map[string]*CellStatus
+	logger    hclog.Logger
+}
+
+func NewCellRunner(x, y int, logger hclog.Logger) *CellRunner {
+	name := fmt.Sprintf("%d-%d", x, y)
+	return &CellRunner{
+		CellStatus: NewCellStatus(x, y),
+		logger:     logger.Named(name),
+	}
+}
+
+func (c *CellStatus) GetJobspec() NomadJob {
 	var job NomadJob
 	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
 	json.Unmarshal([]byte(spec), &job)
 	return job
 }
 
-func (c *Cell) Exists() bool {
+func (c *CellRunner) Exists() bool {
 	return Consul.ServiceExists(c.Name()) // maybe dumb to check the whole catalog...
 }
 
-func (c *Cell) Alive() bool {
+func (c *CellRunner) Alive() bool {
 	healthy := Consul.ServiceHealth(c.Name())
-	log.Println(c.Name(), "healthy:", healthy)
+	c.logger.Info(c.Name() + " is healthy:")
 	return healthy
 }
 
-func (c *Cell) TmpFile() string {
+func (c *CellRunner) TmpFile() string {
 	return fmt.Sprintf("%s/%s", TmpDir, c.Name())
 }
 
-func (c *Cell) SetStatus(alive bool) {
+func (c *CellRunner) SetStatus(alive bool) {
 	status := "alive"
 	if !alive {
 		status = "dead"
@@ -98,17 +126,7 @@ func (c *Cell) SetStatus(alive bool) {
 	// }
 }
 
-func (c *Cell) GetStatus() bool {
-	return Consul.GetKV(c.Name()) == "alive"
-	// bts, err := ioutil.ReadFile(c.TmpFile())
-	// if err != nil {
-	// 	log.Println("ERR", err)
-	// 	return false
-	// }
-	// return string(bts) == "alive"
-}
-
-func (c *Cell) Destroy() {
+func (c *CellRunner) Destroy() {
 	Nomad.DeleteJob(c)
 	Consul.DeleteKV(c.Name())
 }

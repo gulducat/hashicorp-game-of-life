@@ -24,7 +24,7 @@ type NomadAPI struct {
 	api *API
 }
 
-func (n *NomadAPI) CreateJob(cell *Cell) {
+func (n *NomadAPI) CreateJob(cell *CellStatus) {
 	job := cell.GetJobspec()
 	spec, err := json.Marshal(job)
 	if err != nil {
@@ -34,7 +34,7 @@ func (n *NomadAPI) CreateJob(cell *Cell) {
 	fmt.Println(status, string(body))
 }
 
-func (n *NomadAPI) DeleteJob(cell *Cell) {
+func (n *NomadAPI) DeleteJob(cell *CellRunner) {
 	path := fmt.Sprintf("/job/%s?purge=true", cell.Name())
 	n.api.Delete(path)
 }
