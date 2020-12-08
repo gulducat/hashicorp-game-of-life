@@ -65,23 +65,6 @@ type cellStatus struct {
 	status string
 }
 
-// cellStatuses is used sort cellStatus types via the sort interface
-type cellStatuses []*cellStatus
-
-func (cs cellStatuses) Len() int {
-	return len(cs)
-}
-
-func (cs cellStatuses) Swap(i, j int) {
-	cs[i], cs[j] = cs[j], cs[i]
-}
-
-func (cs cellStatuses) Less(i, j int) bool {
-	iX, iY := cs[i].cell.x, cs[i].cell.y
-	jX, jY := cs[j].cell.x, cs[j].cell.y
-	return iX < jX || (iX == jX && iY < jY)
-}
-
 func StatusGrid() []byte {
 	var wg sync.WaitGroup
 	services := Consul.ServiceCatalog()
@@ -117,11 +100,15 @@ func StatusGrid() []byte {
 	wg.Wait()
 	close(cellStatCh)
 
-	cellStats := make(cellStatuses, 0, MaxHeight*MaxWidth)
+	cellStats := make([]*cellStatus, 0, MaxHeight*MaxWidth)
 	for cs := range cellStatCh {
 		cellStats = append(cellStats, cs)
 	}
-	sort.Sort(cellStats)
+	sort.Slice(cellStats, func(i, j int) bool {
+		iY, iX := cellStats[i].cell.y, cellStats[i].cell.x
+		jY, jX := cellStats[j].cell.y, cellStats[j].cell.x
+		return iY < jY || (iY == jY && iX < jX)
+	})
 	var out bytes.Buffer
 	var count int
 	for _, cs := range cellStats {
