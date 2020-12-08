@@ -28,7 +28,7 @@ type ConsulDNS struct {
 }
 
 func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) {
-	name := fmt.Sprintf("%s.service.%s.consul", serviceName, datacenter)
+	name := serviceName + ".service." + datacenter + ".consul"
 
 	_, addrs, err := c.r.LookupSRV(c.ctx, "", "", name)
 	if err != nil {
