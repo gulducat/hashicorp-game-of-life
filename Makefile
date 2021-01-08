@@ -7,7 +7,7 @@ all: svc seed
 help:
 	egrep -o '^\w+[:]' $(MAKEFILE_LIST)
 
-svc: nomad consul
+svc: consul nomad
 	@echo
 	@echo 'Nomad:  $(NOMAD_ADDR)/ui/'
 	@echo 'Consul: $(CONSUL_HTTP_ADDR)/ui/'
@@ -37,9 +37,9 @@ seed: build
 
 ui:
 	while true; do \
-		curl -s http://$(HOST) ;\
+		curl http://$(HOST) ;\
 		echo -------- ;\
-		sleep 0.2 ;\
+		sleep 1 ;\
 	done
 
 more:
@@ -59,20 +59,21 @@ upload:
 	done
 
 get-ip:
-	@nomad status api | awk '/running/ {print$$2}' | while read -r node; do \
+	@nomad status 0-0 | awk '/0-0.*running/ {print$$2}' | while read -r node; do \
 	  nomad node status -verbose $$node | awk '/public-ipv4/ {print$$NF}' ;\
+	  break ;\
 	done
 
 ui2:
 	while true; do \
-	  curl -s http://$(shell make get-ip 2>/dev/null) ;\
+	  curl http://$(shell make get-ip 2>/dev/null) ;\
 	  echo --- ;\
 	done
 
 clean:
-	nomad stop -purge 0-0 && sleep 5 || true
+	nomad stop -purge 0-0 && bash -c 'for x in {1..15}; do n="$$(nomad status | wc -l)"; echo $$x $$n; test $$n -le 2 && break; sleep 1; done' || true
 	nomad status | awk '/system|service/ {print$$1}' | while read j; do \
-	  nomad stop -purge $$j ;\
+		curl -sX DELETE $(NOMAD_ADDR)/v1/job/$$j?purge=true >/dev/null ;\
 	done
 	curl -X PUT $(NOMAD_ADDR)/v1/system/gc
 
