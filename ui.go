@@ -12,11 +12,20 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
+// var httpPort = os.Getenv("NOMAD_PORT_waypoint")
+var httpPort = os.Getenv("NOMAD_PORT_http")
+var Grid string
+
 func ApiListen() {
 	logger.Info("running api")
 	ui := NewUI(logger, time.Second/2)
-	logger.Info("listening on " + ":80")
-	if err := ui.ListenAndServe(":80"); err != nil {
+	if httpPort == "" {
+		httpPort = "80"
+	}
+	logger.Info("listening on " + ":" + httpPort)
+	if err := ui.ListenAndServe(":" + httpPort); err != nil {
+		// logger.Info("listening on " + ":80")
+		// if err := ui.ListenAndServe(":80"); err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
@@ -43,15 +52,14 @@ func (ui *UI) ListenAndServe(address string) error {
 	return http.ListenAndServe(address, r)
 }
 
-func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
-	// TODO: separate function to build the grid on a ticker, store as a var for cache
+func (ui *UI) UpdateGrid() {
 	var val string
 	var name string
-	// for name, alive := range Statuses {
-	// 	w.Write([]byte(fmt.Sprintf("%s %t\n", name, alive)))
-	// }
-	for x := 1; x <= MaxWidth; x++ {
-		for y := 1; y <= MaxHeight; y++ {
+	Mut.RLock()
+	defer Mut.RUnlock()
+	Grid = ""
+	for y := 1; y <= MaxHeight; y++ {
+		for x := 1; x <= MaxWidth; x++ {
 			val = "🌑"
 			name = fmt.Sprintf("%d-%d", x, y)
 			alive, ok := Statuses[name]
@@ -63,11 +71,41 @@ func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
 					val = "⭕️"
 				}
 			}
-			// w.Write([]byte(name + val))
-			w.Write([]byte(val))
+			Grid += val
 		}
-		w.Write([]byte("\n"))
+		Grid += "\n"
 	}
+}
+
+func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(Grid))
+	// TODO: separate function to build the grid on a ticker, store as a var for cache
+	// w.Write([]byte(Grid))
+	// var val string
+	// var name string
+	// // for name, alive := range Statuses {
+	// // 	w.Write([]byte(fmt.Sprintf("%s %t\n", name, alive)))
+	// // }
+	// Mut.RLock()
+	// defer Mut.RUnlock()
+	// for y := 1; y <= MaxHeight; y++ {
+	// 	for x := 1; x <= MaxWidth; x++ {
+	// 		val = "🌑"
+	// 		name = fmt.Sprintf("%d-%d", x, y)
+	// 		alive, ok := Statuses[name]
+	// 		if ok {
+	// 			// ui.logger.Info("GET", name, "alive:", alive)
+	// 			if alive {
+	// 				val = "🟢"
+	// 			} else {
+	// 				val = "⭕️"
+	// 			}
+	// 		}
+	// 		// w.Write([]byte(name + val))
+	// 		w.Write([]byte(val))
+	// 	}
+	// 	w.Write([]byte("\n"))
+	// }
 }
 
 // type cellStatus struct {

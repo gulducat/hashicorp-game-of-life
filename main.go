@@ -18,8 +18,22 @@ import (
 // const MaxWidth = 24
 // const MaxHeight = 21
 
-const MaxWidth = 7
-const MaxHeight = 7
+// const MaxWidth = 15
+// const MaxHeight = 12
+
+// TODO: why does the ui start being wobbly?
+// good for 4 clients; 77 per node
+const MaxWidth = 18
+const MaxHeight = 17
+
+// 6 clients, 77 per
+// const MaxWidth = 23
+// const MaxHeight = 20
+
+// 11x10 is too big in vagrant (nomad gets real sad)
+// *INTERESTINGLY* it runs better in a vagrant, way less host CPU
+// const MaxWidth = 3
+// const MaxHeight = 3
 
 const TmpDir = "/tmp/hgol"
 
@@ -34,22 +48,34 @@ func main() {
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
 	}
+
+	fmt.Println(os.Args)
+
+	CacheAllCells()
+
+	seed := NewCell2("1-1")
 	switch arg {
+
+	case "test":
+		SendUDP("hello there", &seed)
 
 	case "run":
 		Run()
 
 	case "api":
-		ApiListen() // "api" is gone, long live "0-0" (for now)
+		ApiListen() // "api" is gone, long live "0-0"
 
 	case "seed":
 		seed := NewCell2("0-0")
 		seed.Create()
 
 	case "more":
-		SendToAll("random xxx")
+		// SendToAll("random xxx")
+		SendToAll("pattern random")
+		// SendUDP("pattern random", &seed)
 
 	case "pattern":
+		// SendUDP("pattern "+os.Args[2], &seed)
 		// Sleepy()
 		// time.Sleep(200 * time.Millisecond)
 		p := os.Args[2]
@@ -58,6 +84,15 @@ func main() {
 			log.Fatalf("Invalid pattern %q", p)
 		}
 		SendToAll("pattern " + p)
+
+	case "dnstest":
+		// fmt.Println(Consul.Service("0-0"))
+		cdns := NewConsulDNS()
+		addr, err := cdns.GetServiceAddr("0-0")
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Println(addr)
 
 	}
 }
@@ -71,21 +106,31 @@ func GetSelf() *Cell2 {
 	return &self
 }
 
-func Sleepy() {
-	// lazy attempt to sync up cells... on even seconds.
-	// it works pretty well!  at least on a single computer (my laptop)
-	now := time.Now()
-	// these aren't really half seconds...
-	toHalfSecond := (1000000000 - now.Nanosecond()) // this one's a second
-	// toHalfSecond := (1000000000 - now.Nanosecond()) / 2 // these
-	// toHalfSecond := (1000000000 - now.Nanosecond()) - 500000000 // are failures of the imagination.
-	duration, err := time.ParseDuration(fmt.Sprintf("%dns", toHalfSecond))
-	if err != nil {
-		log.Println("Error getting duration...", err)
-		return
+func Ticker() {
+	ui := NewUI(logger, 0)
+	for {
+		ui.UpdateGrid()
+		SendToAll("tick tock")
+		// TODO: dynamic sleep time based on how long things take to get through the system.
+		time.Sleep(500 * time.Millisecond)
+		// time.Sleep(1 * time.Second)
+		// time.Sleep(1500 * time.Millisecond)
 	}
-	log.Printf("Now: %s ; sleeping for: %s", now, duration)
-	time.Sleep(duration)
+}
+
+func WatchSeed(s, c *Cell2) {
+	defer c.Destroy()
+	dead := 0
+	// allow seed going down for up to 10 seconds
+	for dead < 5 {
+		time.Sleep(2 * time.Second)
+		err := SendUDP("ping pong", s)
+		if err == nil {
+			dead = 0
+		} else {
+			dead++
+		}
+	}
 }
 
 func Run() {
@@ -94,50 +139,36 @@ func Run() {
 	isSeed := seed.Name() == self.Name()
 	fmt.Println("self:", self.Name())
 
-	defer self.Destroy()
+	// defer self.Destroy()
 
 	if !isSeed {
 		if !seed.WaitUntilExists(10) { // try for 10 seconds
 			fmt.Println("no service for seed 0-0 at launch")
+			self.Destroy()
 			return
 		}
 	}
 
 	neighbors := self.Neighbors()
-	// time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond) // TODO: add back Exists() check in EnsureJobs()?
-	EnsureJobs(neighbors)
+	EnsureJobs(self, neighbors)
 
-	go self.Listen()
 	if isSeed {
-		ApiListen() // blocks, seed stops here.
-	}
-
-	// main loop
-	var err error
-	deadSeeds := 0      // to stay alive if 0-0 only *temporarily* goes down
-	for deadSeeds < 5 { // TODO: 15
-		// sleep first to give the job(s) a chance to be created.
-		// time.Sleep(500 * time.Millisecond)
-		Sleepy() // try to keep things in sync
-
-		CheckPattern(self)
-
-		self.SetAlive()
-		self.UpdateNeighbors()
-
-		err = self.Update(&seed)
-		if err == nil {
-			deadSeeds = 0
-		} else {
-			deadSeeds++
-		}
-		fmt.Println("deadSeeds:", deadSeeds)
+		go self.Listen()
+		go Ticker()
+		ApiListen()
+	} else {
+		go WatchSeed(&seed, self)
+		self.Listen()
 	}
 
 }
 
-func EnsureJobs(cells map[string]*Cell2) {
+func EnsureJobs(self *Cell2, cells map[string]*Cell2) {
 	for name, c := range cells {
+		// cells above and below already exist, one of them created me.
+		if self.x > c.x || self.y > c.y {
+			continue
+		}
 		// if !c.Exists() {
 		fmt.Println("Creating job:", name)
 		c.Create()
@@ -145,23 +176,30 @@ func EnsureJobs(cells map[string]*Cell2) {
 	}
 }
 
-func SendToAll(msg string) {
-	// TODO: move logic to "api" so it can cache service addresses.
+var AllCells []*Cell2
 
-	// Sleepy()
-	// time.Sleep(100 * time.Millisecond)
-
-	var wg sync.WaitGroup // TODO: does this concurrency really help?
+func CacheAllCells() {
 	for x := 1; x <= MaxWidth; x++ {
 		for y := 1; y <= MaxHeight; y++ {
-			wg.Add(1)
-			go func(x, y int) {
-				defer wg.Done()
-				c := Cell2{x: x, y: y, alive: true, cdns: NewConsulDNS()}
-				SendUDP(msg, &c)
-				// c.UpdateNeighbors()
-			}(x, y)
+			c := Cell2{x: x, y: y}
+			AllCells = append(AllCells, &c)
 		}
 	}
+}
+
+func SendToAll(msg string) {
+	// TODO: move logic from cli to "api" so it can cache service addresses.
+	// TODO: WaitGroup is only needed for running from laptop. (?)
+	var wg sync.WaitGroup // TODO: does this concurrency really help?  yes, yes it most certainly does.
+	start := time.Now()
+	for _, c := range AllCells {
+		wg.Add(1)
+		go func(c *Cell2) {
+			SendUDP(msg, c)
+			wg.Done()
+		}(c)
+	}
 	wg.Wait()
+	end := time.Now()
+	log.Println("SendToAll duration:", end.Sub(start))
 }

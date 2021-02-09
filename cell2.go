@@ -6,12 +6,14 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
 )
 
-var Statuses = make(map[string]bool)
+var Statuses = make(map[string]bool) // TODO: not this
+var Mut sync.RWMutex
 
 type Cell2 struct {
 	x     int
@@ -21,9 +23,7 @@ type Cell2 struct {
 	n     map[string]*Cell2
 
 	pattern string
-
-	cdns *ConsulDNS
-	mut  sync.RWMutex
+	mut     sync.RWMutex
 	// server *UDPServer
 }
 
@@ -34,7 +34,6 @@ func NewCell2(name string) Cell2 {
 		x:     x,
 		y:     y,
 		alive: true,
-		cdns:  NewConsulDNS(),
 		// n:     make(map[string]*Cell2),
 	}
 }
@@ -43,28 +42,31 @@ func (c *Cell2) Name() string {
 	return fmt.Sprintf("%d-%d", c.x, c.y)
 }
 
+func (c *Cell2) IsSeed() bool {
+	return c.Name() == "0-0"
+}
+
 func (c *Cell2) Address() (string, error) {
 	// TODO: retry if stale addr; somewhere... Update()?
-
-	// if c.addr != "" && c.Name() != "0-0" {
 	if c.addr != "" {
 		return c.addr, nil
 	}
 
-	addr := ""
-	svc, err := Consul.Service(c.Name())
+	// addr := ""
+	// svc, err := Consul.Service(c.Name())
+	// if err != nil {
+	// 	return "", err
+	// }
+	// addr = fmt.Sprintf("%s:%d", svc.Address, svc.Port)
+
+	// turns out dns is wayyyy faster than http
+	cdns := NewConsulDNS()
+	addr, err := cdns.GetServiceAddr(c.Name())
 	if err != nil {
+		log.Println(err)
+		c.addr = ""
 		return "", err
 	}
-	addr = fmt.Sprintf("%s:%d", svc.Address, svc.Port)
-
-	// TODO: remove cdns, http is probably fine for how infrequently we'll be hitting it, and it would allow my laptop to `make more` etc
-	// addr, err := c.cdns.GetServiceAddr(c.Name())
-	// log.Printf("%s addr: %s\n", c.Name(), addr)
-	// if err != nil {
-	// 	log.Println("Err getting address: ", err)
-	// 	// addr = ""
-	// }
 
 	c.addr = addr
 	return addr, err
@@ -94,19 +96,19 @@ func (c *Cell2) Neighbors() map[string]*Cell2 {
 		// comments assuming cell "2-2"
 
 		// top row
-		&Cell2{x: c.x - 1, y: c.y - 1, cdns: c.cdns}, // 1-1
-		&Cell2{x: c.x, y: c.y - 1, cdns: c.cdns},     // 2-1
-		&Cell2{x: c.x + 1, y: c.y - 1, cdns: c.cdns}, // 3-1
+		&Cell2{x: c.x - 1, y: c.y - 1}, // 1-1
+		&Cell2{x: c.x, y: c.y - 1},     // 2-1
+		&Cell2{x: c.x + 1, y: c.y - 1}, // 3-1
 
 		// middle row
-		&Cell2{x: c.x - 1, y: c.y, cdns: c.cdns}, // 1-2
+		&Cell2{x: c.x - 1, y: c.y}, // 1-2
 		// 2-2 is self.
-		&Cell2{x: c.x + 1, y: c.y, cdns: c.cdns}, // 3-2
+		&Cell2{x: c.x + 1, y: c.y}, // 3-2
 
 		// bottom row
-		&Cell2{x: c.x - 1, y: c.y + 1, cdns: c.cdns}, // 1-3
-		&Cell2{x: c.x, y: c.y + 1, cdns: c.cdns},     // 2-3
-		&Cell2{x: c.x + 1, y: c.y + 1, cdns: c.cdns}, // 3-3
+		&Cell2{x: c.x - 1, y: c.y + 1}, // 1-3
+		&Cell2{x: c.x, y: c.y + 1},     // 2-3
+		&Cell2{x: c.x + 1, y: c.y + 1}, // 3-3
 
 	}
 	var valid = make(map[string]*Cell2)
@@ -124,6 +126,7 @@ func (c *Cell2) Neighbors() map[string]*Cell2 {
 }
 
 func (c *Cell2) Listen() (err error) {
+	// addr := os.Getenv("NOMAD_ADDR_udp")
 	addr := "0.0.0.0:" + UdpPort
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
@@ -132,9 +135,14 @@ func (c *Cell2) Listen() (err error) {
 	}
 	defer conn.Close()
 
+	seed := NewCell2("0-0")
+
 	errChan := make(chan error, 1)
 	buf := make([]byte, 512)
 	go func() {
+		// twixtTicks := 0
+		// var mut sync.Mutex
+
 		for {
 			n, dst, err := conn.ReadFrom(buf)
 			// "Callers should always process the n > 0 bytes returned before considering the error err." hm.
@@ -145,34 +153,105 @@ func (c *Cell2) Listen() (err error) {
 				continue
 			}
 			msg := string(buf[:n])
-			log.Printf("serv recv %s", msg)
+			// log.Printf("serv recv %s", msg)
+
+			// start := time.Now()
+			ticks := 0
+			Mut.Lock()
 
 			parts := strings.Split(msg, " ")
-
-			c.pattern = ""
-			c.mut.Lock()
 			switch parts[0] {
 
-			case "tick":
-				continue // TODO: maybe something sends "tick tock" to all the cells, instead of the Run() loop trying to sync up with system time?
+			case "ping":
+				break
 
-			case "random":
-				rand.Seed(time.Now().UnixNano())
-				for k := range Statuses {
-					Statuses[k] = rand.Intn(2) > 0 // set 1/2 to alive
+			case "tick":
+				// log.Printf("Betwixt ticks: %d", twixtTicks)
+				// twixtTicks = 0
+
+				// avoid race: wait for all cells to get the tick.
+				// it takes up to ~20ms for seed to finish 49 cells on laptop
+				// NOTE: SendUDP's Deadline must be longer than this*8.
+				time.Sleep(50 * time.Millisecond)
+
+				// if there's a c.pattern, apply it in memory,
+				// otherwise compute my liveness from memory of updates from neighbors, and update neighbors
+				// if there's no c.pattern, compute my liveness from memory of updates from neighbors, and update neighbors
+				// otherwise, apply only apply the pattern in memory
+
+				// newLiveness := c.GetNextLiveness()
+				// changed := c.alive != newLiveness
+				// c.alive = newLiveness
+
+				if !ApplyPattern(c) {
+					if c.pattern == "random" {
+						rand.Seed(time.Now().UnixNano())
+						c.alive = rand.Intn(3) > 1 // ~1/3 of the time
+					} else {
+						c.alive = c.GetNextLiveness()
+					}
 				}
+				// if !ApplyPattern(c) {
+				// 	// if changed || ticks < 5 { // update more at first in case they're not alive yet
+				// 	// }
+				// }
+				go c.UpdateNeighbors()
+
+				// aliveChanged := false
+				// patternApplied := ApplyPattern(c)
+
+				// if !ApplyPattern(c) {
+				// 	if c.SetAlive() { // only update on change
+				// 		go c.UpdateNeighbors()
+				// 	}
+				// }
+				go c.Update(&seed)
+				ticks++
 
 			case "pattern":
-				c.pattern = parts[1]
+				if c.IsSeed() {
+					// TODO: put this in a function, it's also in the CLI "random" case right now
+					p := os.Args[2]
+					_, ok := Patterns[p]
+					if !ok {
+						log.Fatalf("Invalid pattern %q", p)
+					}
+					SendToAll("pattern " + p)
+				} else {
+					c.pattern = parts[1]
+				}
 
-			default:
-				parts := strings.Split(msg, " ")
+			default: // updates from neighbors
+				// twixtTicks++
 				nName := parts[0]
 				nAlive := parts[1] == "true"
 				Statuses[nName] = nAlive
 
+				// rebuild the whole grid every update? is that any kind of improvement?
+				// if c.IsSeed() {
+				// 	grid := ""
+				// 	for y := 1; y <= MaxHeight; y++ {
+				// 		for x := 1; x <= MaxWidth; x++ {
+				// 			val := "🌑"
+				// 			name := fmt.Sprintf("%d-%d", x, y)
+				// 			alive, ok := Statuses[name]
+				// 			if ok {
+				// 				if alive {
+				// 					val = "🟢"
+				// 				} else {
+				// 					val = "⭕️"
+				// 				}
+				// 			}
+				// 			grid += val
+				// 		}
+				// 		grid += "\n"
+				// 	}
+				// 	Grid = grid
+				// }
+
 			}
-			c.mut.Unlock()
+
+			Mut.Unlock()
 
 			// respond to client
 			out := append(buf[:n], '\n') // add newline so Readline() in client SendUDP() knows end of response
@@ -180,11 +259,14 @@ func (c *Cell2) Listen() (err error) {
 			if err != nil {
 				log.Println("i:", i, ":: err: ", err)
 			}
+
+			// end := time.Now()
+			// log.Printf("listen duration: %s (%q)", end.Sub(start), buf[:n])
 		}
 	}()
-	fmt.Println("server started")
+	fmt.Println("server started on", addr)
 
-	select {
+	select { // TODO: learn more about select
 	// case <-ctx.Done():
 	// 	fmt.Println("cancelled")
 	// 	err = ctx.Err()
@@ -195,16 +277,16 @@ func (c *Cell2) Listen() (err error) {
 
 func (c *Cell2) UpdateNeighbors() {
 	// TODO: does a goroutine actually making anything faster? maybe... special patterns are sensitive.
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 	for _, n := range c.Neighbors() {
 		// c.Update(n)
-		wg.Add(1)
-		go func(n *Cell2) {
-			defer wg.Done()
-			c.Update(n)
-		}(n)
+		// wg.Add(1)
+		// go func(n *Cell2) {
+		// 	defer wg.Done()
+		c.Update(n)
+		// }(n)
 	}
-	wg.Wait()
+	// wg.Wait()
 }
 
 func (c *Cell2) Update(n *Cell2) (err error) {
@@ -217,46 +299,71 @@ func (c *Cell2) Update(n *Cell2) (err error) {
 	return
 }
 
-func (c *Cell2) SetAlive() bool {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (c *Cell2) GetNextLiveness() bool {
+	// c.mut.Lock()
+	// defer c.mut.Unlock()
 
 	totalAlive := 0
 	for _, n := range c.Neighbors() {
 		alive, ok := Statuses[n.Name()]
-		if !ok { // if any neighbor doesn't exist, default to alive
-			c.alive = true
+		if !ok { // if any neighbor doesn't exist yet, default to alive
+			// c.alive = true
 			return true
 		}
 		// fmt.Println("Alive", alive, "ok", ok)
-		if alive && ok {
+		if alive {
 			totalAlive++
 		}
 	}
-	// log.Println("unlocking in SetAlive()")
 	fmt.Println("totalAlive", totalAlive)
 
+	// // aliveBefore := c.alive
+
+	// // Any live cell with two or three live neighbors lives on to the next generation.
+	// // Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+	// beAlive := (totalAlive == 2 || totalAlive == 3)
+	// fmt.Println("beAlive", beAlive)
+	// // Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+	// // Any live cell with more than three live neighbors dies, as if by overpopulation.
+	// beDead := (totalAlive < 2 || totalAlive > 3) // covered by beAlive
+	// // changed := (c)
+	// // if beAlive {
+	// // 	c.alive = true
+	// // }
+	// // if beDead {
+	// // 	c.alive = false
+	// // }
+
+	// return beAlive || !beDead
+	// // return aliveBefore != c.alive
+	beAlive := false
+
+	if c.alive == true {
+		beAlive = totalAlive == 2 || totalAlive == 3 // 2 or 3
+	} else {
+		beAlive = totalAlive == 3 // exactly 3
+	}
+
+	return beAlive
+
 	// Any live cell with two or three live neighbors lives on to the next generation.
-	if c.alive == true && (totalAlive == 2 || totalAlive == 3) {
-		return true
-	}
+	// if c.alive == true && (totalAlive == 2 || totalAlive == 3) {
+	// 	return true
+	// }
+	// // Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+	// if c.alive == false && totalAlive == 3 {
+	// 	c.alive = true
+	// }
+	// // Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+	// if c.alive == true && totalAlive < 2 {
+	// 	c.alive = false
+	// }
+	// // Any live cell with more than three live neighbors dies, as if by overpopulation.
+	// if c.alive == true && totalAlive > 3 {
+	// 	c.alive = false
 
-	// Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
-	if c.alive == false && totalAlive == 3 {
-		c.alive = true
-	}
-
-	// Any live cell with fewer than two live neighbors dies, as if by underpopulation.
-	if c.alive == true && totalAlive < 2 {
-		c.alive = false
-	}
-
-	// Any live cell with more than three live neighbors dies, as if by overpopulation.
-	if c.alive == true && totalAlive > 3 {
-		c.alive = false
-
-	}
-	return c.alive
+	// }
+	// return c.alive
 }
 
 func (c *Cell2) Create() {
@@ -268,9 +375,8 @@ func (c *Cell2) Destroy() {
 	Nomad.DeleteJob(c)
 }
 
-func (c *Cell2) GetJobspec() NomadJob {
-	var job NomadJob
+func (c *Cell2) GetJobspec() (job NomadJob) {
 	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
 	json.Unmarshal([]byte(spec), &job)
-	return job
+	return
 }

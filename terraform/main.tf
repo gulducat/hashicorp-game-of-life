@@ -1,4 +1,3 @@
-# TODO: why need this?
 terraform {
   required_version = ">= 0.13"
   required_providers {
@@ -15,15 +14,14 @@ provider "aws" {
 
 module "nomad-oss" {
   source                = "./terraform-aws-nomad-starter/modules/nomad_cluster"
-  #                         db                  omar               kingsley
-  allowed_inbound_cidrs = ["136.49.27.204/32", "69.237.40.71/32", "209.6.27.148/32"]
-  vpc_id                = "vpc-bc011fc6" # default vpc in product_delivery_prod
-  consul_version        = "1.8.5"
-  nomad_version         = "0.12.8"
+  allowed_inbound_cidrs = ["136.49.27.204/32"]
+  vpc_id                = "vpc-3e140a44" # default vpc in engserv_sandbox_dev
+  consul_version        = "1.9.2"
+  nomad_version         = "1.0.3-2"
   owner                 = "dbennett"
-  name_prefix           = "dbennett-"
+  name_prefix           = "dbennett"
   key_name              = "dbennett-test"
   nomad_servers         = 1
-  nomad_clients         = 5
+  nomad_clients         = 6
   instance_type         = "m5.xlarge" # defualt = m5.large
 }

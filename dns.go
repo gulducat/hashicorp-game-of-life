@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 )
 
-const consulDnsAddr = "127.0.0.1:8600"
 const datacenter = "dc1"
 
 func NewConsulDNS() *ConsulDNS {
+	consulDnsAddr := strings.Replace(ConsulAddr, "8500", "8600", 1)
+	consulDnsAddr = strings.Replace(consulDnsAddr, "http://", "", 1)
+	consulDnsAddr = strings.Replace(consulDnsAddr, "https://", "", 1)
 	return &ConsulDNS{
 		r: &net.Resolver{
 			PreferGo: true,

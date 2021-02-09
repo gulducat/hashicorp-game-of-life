@@ -54,7 +54,7 @@ resource "aws_launch_configuration" "nomad_clients" {
       environment_name = "${var.name_prefix}-nomad",
       consul_version   = var.consul_version,
       nomad_version    = var.nomad_version,
-      datacenter       = data.aws_region.current.name,
+      datacenter       = "dc1",
       gossip_key       = random_id.consul_gossip_encryption_key.b64_std,
       master_token     = random_uuid.consul_master_token.result
   })

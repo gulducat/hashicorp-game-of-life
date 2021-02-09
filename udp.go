@@ -18,7 +18,7 @@ import (
 // 	"strings"
 // )
 
-var UdpPort = os.Getenv("NOMAD_PORT_udp")
+var UdpPort = os.Getenv("NOMAD_HOST_PORT_udp")
 
 // // func main() {
 // // 	if port == "" {
@@ -89,6 +89,10 @@ func SendUDP(daters string, cell *Cell2) (err error) {
 	if err != nil {
 		return
 	}
+	// addr = strings.Replace(addr, "127.0.0.1", "host.docker.internal", -1) // TODO: undo this osx kludge.
+
+	// start := time.Now()
+
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		log.Printf("Error getting UDP port for %s: %s", cell.Name(), err)
@@ -98,7 +102,7 @@ func SendUDP(daters string, cell *Cell2) (err error) {
 
 	// TODO: remember: this fixed my "jobs dont die becuause frozen" bug
 	now := time.Now()
-	err = conn.SetDeadline(now.Add(time.Second))
+	err = conn.SetDeadline(now.Add(500 * time.Millisecond)) // TODO: longer when run on a cluster?
 	if err != nil {
 		log.Println("Error setting deadline:", err)
 	}
@@ -109,12 +113,16 @@ func SendUDP(daters string, cell *Cell2) (err error) {
 		log.Printf("Error sending %q to %s: %s", daters, cell.Name(), err)
 	}
 
-	buf, _, err := bufio.NewReader(conn).ReadLine()
+	// buf, _, err := bufio.NewReader(conn).ReadLine()
+	_, _, err = bufio.NewReader(conn).ReadLine()
 	if err != nil {
 		log.Printf("Error reading response from %s: %s", cell.Name(), err)
 		return
 	}
-	log.Println("clnt recv", string(buf))
+	// log.Println("clnt recv", string(buf))
+
+	// end := time.Now()
+	// log.Printf("SendUDP %q to %q duration: %s", daters, cell.Name(), end.Sub(start))
 
 	return
 }

@@ -10,12 +10,13 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
+var ConsulAddr = os.Getenv("CONSUL_HTTP_ADDR")
+
 func NewConsul(logger hclog.Logger) *ConsulAPI {
-	addr := os.Getenv("CONSUL_HTTP_ADDR")
-	if addr == "" {
-		addr = "http://localhost:8500"
+	if ConsulAddr == "" {
+		ConsulAddr = "http://localhost:8500"
 	}
-	api := NewAPI(fmt.Sprintf("%s/v1", addr), logger)
+	api := NewAPI(fmt.Sprintf("%s/v1", ConsulAddr), logger)
 	return &ConsulAPI{
 		api: api,
 	}
@@ -27,7 +28,7 @@ type ConsulAPI struct {
 
 type ConsulService struct {
 	Name    string `json:"ServiceName"`
-	Address string `json:"ServiceAddress"`
+	Address string `json:"Address"`
 	Port    int    `json:"ServicePort"`
 }
 
