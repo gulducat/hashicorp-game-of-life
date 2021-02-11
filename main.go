@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -170,10 +171,13 @@ func EnsureJobs(self *Cell2, cells map[string]*Cell2) {
 		if self.x > c.x || self.y > c.y {
 			continue
 		}
-		// if !c.Exists() {
-		fmt.Println("Creating job:", name)
-		c.Create()
-		// }
+		// try not to stampede nomad api
+		sleep := time.Duration(100 + rand.Intn(200))
+		time.Sleep(sleep * time.Millisecond)
+		if !c.Exists() {
+			fmt.Println("Creating job:", name)
+			c.Create()
+		}
 	}
 }
 

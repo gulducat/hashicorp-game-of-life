@@ -37,7 +37,8 @@ func (n *NomadAPI) CreateJob(cell *Cell2) {
 	job := cell.GetJobspec()
 	spec, err := json.Marshal(job)
 	if err != nil {
-		panic(err)
+		log.Println("Error marshaling jobspec:", err)
+		return
 	}
 	status, body := n.api.Post("/v1/jobs", spec)
 	log.Println(status, string(body))
@@ -243,7 +244,7 @@ var DefaultJob = fmt.Sprintf(`{
 				  "NOMAD_ADDR": "%s"
 			  },
 			  "Resources": {
-				"CPU": 160,
+				"CPU": 250,
 				"MemoryMB": 35,
 				"DiskMB": 10
 			  },
