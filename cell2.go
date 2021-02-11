@@ -172,7 +172,8 @@ func (c *Cell2) Listen() (err error) {
 				// avoid race: wait for all cells to get the tick.
 				// it takes up to ~20ms for seed to finish 49 cells on laptop
 				// NOTE: SendUDP's Deadline must be longer than this*8.
-				time.Sleep(50 * time.Millisecond)
+				sleep := time.Duration(MaxWidth * MaxHeight / 25) // TODO: hmmm.. magic.
+				time.Sleep(sleep * time.Millisecond)
 
 				// if there's a c.pattern, apply it in memory,
 				// otherwise compute my liveness from memory of updates from neighbors, and update neighbors
@@ -195,7 +196,7 @@ func (c *Cell2) Listen() (err error) {
 				// 	// if changed || ticks < 5 { // update more at first in case they're not alive yet
 				// 	// }
 				// }
-				go c.UpdateNeighbors()
+				c.UpdateNeighbors()
 
 				// aliveChanged := false
 				// patternApplied := ApplyPattern(c)
@@ -283,7 +284,7 @@ func (c *Cell2) UpdateNeighbors() {
 		// wg.Add(1)
 		// go func(n *Cell2) {
 		// 	defer wg.Done()
-		c.Update(n)
+		go c.Update(n)
 		// }(n)
 	}
 	// wg.Wait()
@@ -291,6 +292,10 @@ func (c *Cell2) UpdateNeighbors() {
 
 func (c *Cell2) Update(n *Cell2) (err error) {
 	// send self status to a neighbor
+	maxSleep := MaxWidth * MaxHeight / 4
+	jitter := rand.Intn(maxSleep)
+	sleep := time.Duration(jitter)
+	time.Sleep(sleep * time.Millisecond)
 	d := fmt.Sprintf("%s %t", c.Name(), c.alive)
 	err = SendUDP(d, n)
 	if err != nil {

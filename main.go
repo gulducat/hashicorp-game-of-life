@@ -108,13 +108,14 @@ func GetSelf() *Cell2 {
 
 func Ticker() {
 	ui := NewUI(logger, 0)
+	sleep := time.Duration(MaxWidth * MaxHeight / 2)
+	if sleep < 100 {
+		sleep = 100
+	}
 	for {
 		ui.UpdateGrid()
 		SendToAll("tick tock")
-		// TODO: dynamic sleep time based on how long things take to get through the system.
-		time.Sleep(500 * time.Millisecond)
-		// time.Sleep(1 * time.Second)
-		// time.Sleep(1500 * time.Millisecond)
+		time.Sleep(sleep * time.Millisecond)
 	}
 }
 

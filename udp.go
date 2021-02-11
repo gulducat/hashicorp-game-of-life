@@ -85,6 +85,16 @@ var UdpPort = os.Getenv("NOMAD_HOST_PORT_udp")
 // }
 
 func SendUDP(daters string, cell *Cell2) (err error) {
+	for i := 0; i < 5; i++ {
+		err = SendUDPOnce(daters, cell)
+		if err == nil {
+			break
+		}
+	}
+	return
+}
+
+func SendUDPOnce(daters string, cell *Cell2) (err error) {
 	addr, err := cell.Address()
 	if err != nil {
 		return
@@ -102,7 +112,7 @@ func SendUDP(daters string, cell *Cell2) (err error) {
 
 	// TODO: remember: this fixed my "jobs dont die becuause frozen" bug
 	now := time.Now()
-	err = conn.SetDeadline(now.Add(500 * time.Millisecond)) // TODO: longer when run on a cluster?
+	err = conn.SetDeadline(now.Add(100 * time.Millisecond)) // TODO: longer when run on a cluster?
 	if err != nil {
 		log.Println("Error setting deadline:", err)
 	}
