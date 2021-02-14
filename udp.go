@@ -84,7 +84,7 @@ var UdpPort = os.Getenv("NOMAD_HOST_PORT_udp")
 // 	return
 // }
 
-func SendUDP(daters string, cell *Cell2) (err error) {
+func SendUDP(daters string, cell *Cell) (err error) {
 	for i := 0; i < 5; i++ {
 		err = SendUDPOnce(daters, cell)
 		if err == nil {
@@ -94,7 +94,7 @@ func SendUDP(daters string, cell *Cell2) (err error) {
 	return
 }
 
-func SendUDPOnce(daters string, cell *Cell2) (err error) {
+func SendUDPOnce(daters string, cell *Cell) (err error) {
 	addr, err := cell.Address()
 	if err != nil {
 		return

@@ -42,7 +42,7 @@ func main() {
 
 	CacheAllCells()
 
-	seed := NewCell2("1-1")
+	seed := NewCell("1-1")
 	switch arg {
 
 	case "test":
@@ -102,12 +102,12 @@ func GetName() (name string) {
 	return name
 }
 
-func GetSelf() *Cell2 {
+func GetSelf() *Cell {
 	name := GetName()
 	if name == "" {
 		log.Fatal("aint a nomad job")
 	}
-	self := NewCell2(name)
+	self := NewCell(name)
 	return &self
 }
 
@@ -130,7 +130,7 @@ func Ticker() {
 }
 
 func Run() {
-	seed := NewCell2("0-0")
+	seed := NewCell("0-0")
 	self := GetSelf()
 	isSeed := seed.Name() == self.Name()
 	fmt.Println("self:", self.Name())
@@ -145,12 +145,12 @@ func Run() {
 
 }
 
-var AllCells []*Cell2
+var AllCells []*Cell
 
 func CacheAllCells() {
 	for x := 1; x <= MaxWidth; x++ {
 		for y := 1; y <= MaxHeight; y++ {
-			c := Cell2{x: x, y: y}
+			c := Cell{x: x, y: y}
 			AllCells = append(AllCells, &c)
 		}
 	}
@@ -163,7 +163,7 @@ func SendToAll(msg string) {
 	start := time.Now()
 	for _, c := range AllCells {
 		wg.Add(1)
-		go func(c *Cell2) {
+		go func(c *Cell) {
 			SendUDP(msg, c)
 			wg.Done()
 		}(c)

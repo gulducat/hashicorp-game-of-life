@@ -1,134 +1,256 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"math/rand"
+	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"log"
-// 	"strconv"
-// 	"strings"
-// )
+var Statuses = make(map[string]bool) // TODO: not this
+var Mut sync.RWMutex
 
-// func NewCell(name string) Cell {
-// 	x, y := Coords(name)
-// 	return Cell{x: x, y: y}
-// }
+type Cell struct {
+	x     int
+	y     int
+	alive bool
+	addr  string
+	n     map[string]*Cell
 
-func Coords(name string) (int, int) {
-	// given "1-1", return: 1, 1
+	mut sync.RWMutex
+}
+
+func NewCell(name string) Cell {
 	bits := strings.Split(name, "-")
 	x, _ := strconv.Atoi(bits[0])
 	y, _ := strconv.Atoi(bits[1])
-	return x, y
+	return Cell{
+		x:     x,
+		y:     y,
+		alive: true,
+	}
 }
 
-// type Cell struct {
-// 	x      int
-// 	y      int
-// 	status bool
-// 	n      map[string]*Cell
-// }
+func (c *Cell) Name() string {
+	return fmt.Sprintf("%d-%d", c.x, c.y)
+}
 
-// func (c *Cell) Name() string {
-// 	return fmt.Sprintf("%d-%d", c.x, c.y)
-// }
+func (c *Cell) Service() string {
+	if c.IsSeed() {
+		return c.Name()
+	}
+	return fmt.Sprintf("CELL-%d", c.Index())
+}
 
-// func (c *Cell) Neighbors() map[string]*Cell {
-// 	if c.n != nil {
-// 		return c.n
-// 	}
-// 	all := [8]*Cell{
-// 		// comments assuming cell "2-2"
+func (c *Cell) Index() int {
+	width := MaxWidth
+	if c.x == 0 && c.y == 0 {
+		return 0
+	}
+	idx := c.x + width*c.y - width
+	return idx
+}
 
-// 		// top row
-// 		&Cell{x: c.x - 1, y: c.y - 1}, // 1-1
-// 		&Cell{x: c.x, y: c.y - 1},     // 2-1
-// 		&Cell{x: c.x + 1, y: c.y - 1}, // 3-1
+func (c *Cell) IsSeed() bool {
+	return c.Name() == "0-0"
+}
 
-// 		// middle row
-// 		&Cell{x: c.x - 1, y: c.y}, // 1-2
-// 		// 2-2 is self.
-// 		&Cell{x: c.x + 1, y: c.y}, // 3-2
+func (c *Cell) Address() (string, error) {
+	// TODO: retry if stale addr; somewhere... Update()?
+	if c.addr != "" {
+		return c.addr, nil
+	}
 
-// 		// bottom row
-// 		&Cell{x: c.x - 1, y: c.y + 1}, // 1-3
-// 		&Cell{x: c.x, y: c.y + 1},     // 2-3
-// 		&Cell{x: c.x + 1, y: c.y + 1}, // 3-3
+	// turns out dns is wayyyy faster than http
+	cdns := NewConsulDNS()
+	addr, err := cdns.GetServiceAddr(c.Service())
+	if err != nil {
+		log.Println(err)
+		c.addr = ""
+		return "", err
+	}
 
-// 	}
-// 	var valid = make(map[string]*Cell)
-// 	for _, n := range all {
-// 		if n.x < 1 || n.y < 1 || n.x > MaxWidth || n.y > MaxHeight {
-// 			continue
-// 		}
-// 		valid[n.Name()] = n
-// 		// valid = append(valid, n)
-// 	}
-// 	c.n = valid
-// 	return valid
-// }
+	c.addr = addr
+	return addr, err
+}
 
-// func (c *Cell) Create() {
-// 	Nomad.CreateJob(c)
-// }
+func (c *Cell) Neighbors() map[string]*Cell {
+	if c.n != nil {
+		return c.n
+	}
+	all := [8]*Cell{
+		// comments assuming cell "2-2"
 
-// func (c *Cell) GetJobspec() NomadJob {
-// 	var job NomadJob
-// 	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
-// 	json.Unmarshal([]byte(spec), &job)
-// 	return job
-// }
+		// top row
+		&Cell{x: c.x - 1, y: c.y - 1}, // 1-1
+		&Cell{x: c.x, y: c.y - 1},     // 2-1
+		&Cell{x: c.x + 1, y: c.y - 1}, // 3-1
 
-// func (c *Cell) Exists() bool {
-// 	return Consul.ServiceExists(c.Name()) // maybe dumb to check the whole catalog...
-// }
+		// middle row
+		&Cell{x: c.x - 1, y: c.y}, // 1-2
+		// 2-2 is self.
+		&Cell{x: c.x + 1, y: c.y}, // 3-2
 
-// func (c *Cell) Alive() bool {
-// 	healthy := Consul.ServiceHealth(c.Name())
-// 	log.Println(c.Name(), "healthy:", healthy)
-// 	return healthy
-// }
+		// bottom row
+		&Cell{x: c.x - 1, y: c.y + 1}, // 1-3
+		&Cell{x: c.x, y: c.y + 1},     // 2-3
+		&Cell{x: c.x + 1, y: c.y + 1}, // 3-3
 
-// func (c *Cell) TmpFile() string {
-// 	return fmt.Sprintf("%s/%s", TmpDir, c.Name())
-// }
+	}
+	var valid = make(map[string]*Cell)
+	for _, n := range all {
+		if n.x < 1 || n.y < 1 || n.x > MaxWidth || n.y > MaxHeight {
+			continue
+		}
+		valid[n.Name()] = n
+	}
+	if c.Name() != "0-0" { // HACK
+		c.n = valid
+	}
+	return valid
+}
 
-// func (c *Cell) SetStatus(alive bool) {
-// 	status := "alive"
-// 	if !alive {
-// 		status = "dead"
-// 	}
-// 	Consul.SetKV(c.Name(), status)
-// 	// _ = os.Mkdir(TmpDir, 0755)
-// 	// err := ioutil.WriteFile(c.TmpFile(), []byte(status), 0644)
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// }
+func (c *Cell) Tick(seed *Cell, p string) {
+	tickStart := time.Now()
 
-// func (c *Cell) GetStatus() bool {
-// 	return Consul.GetKV(c.Name()) == "alive"
+	// avoid race: wait for all cells to get the tick.
+	// it takes up to ~20ms for seed to finish 49 cells on laptop
+	// NOTE: SendUDP's Deadline must be longer than this*8.
+	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
+	time.Sleep(sleep * time.Millisecond)
 
-// 	// alive := 0
-// 	// for _, n := range c.Neighbors() {
-// 	// 	if n.status {
-// 	// 		alive++
-// 	// 	}
-// 	// }
+	if p == "random" {
+		rand.Seed(time.Now().UnixNano())
+		c.alive = rand.Intn(3) > 1 // ~1/3 of the time
+	} else {
+		if !ApplyPattern(c, p) {
+			c.alive = c.GetNextLiveness()
+		}
+	}
 
-// 	// bts, err := ioutil.ReadFile(c.TmpFile())
-// 	// if err != nil {
-// 	// 	log.Println("ERR", err)
-// 	// 	return false
-// 	// }
-// 	// return string(bts) == "alive"
-// }
+	c.UpdateNeighbors()
+	go c.Update(seed)
 
-// func (c *Cell) Destroy() {
-// 	Nomad.DeleteJob(c)
-// 	Consul.DeleteKV(c.Name())
-// }
+	tickEnd := time.Now()
+	tickDelta := tickEnd.Sub(tickStart)
+	log.Println("tickDelta:", tickDelta)
+}
+
+func (c *Cell) Listen() (err error) {
+	addr := "0.0.0.0:" + UdpPort
+	conn, err := net.ListenPacket("udp", addr)
+	if err != nil {
+		log.Println("Error starting server:", err)
+		return
+	}
+	defer conn.Close()
+
+	seed := NewCell("0-0")
+
+	errChan := make(chan error, 1)
+	buf := make([]byte, 512)
+	go func() {
+		for {
+			n, dst, err := conn.ReadFrom(buf)
+			// "Callers should always process the n > 0 bytes returned before considering the error err." hm.
+			if err != nil {
+				errChan <- err
+			}
+			if buf[:n] == nil {
+				continue
+			}
+			msg := string(buf[:n])
+			// log.Printf("serv recv %s", msg)
+
+			// start := time.Now()
+			Mut.Lock()
+
+			parts := strings.Split(msg, " ")
+			switch parts[0] {
+
+			case "ping":
+				break
+
+			case "tick":
+				c.Tick(&seed, "")
+
+			case "pattern":
+				c.Tick(&seed, parts[1])
+
+			default: // updates from neighbors
+				nName := parts[0]
+				nAlive := parts[1] == "true"
+				Statuses[nName] = nAlive
+
+			}
+
+			Mut.Unlock()
+
+			// respond to client
+			out := append(buf[:n], '\n') // add newline so Readline() in client SendUDP() knows end of response
+			i, err := conn.WriteTo(out, dst)
+			if err != nil {
+				log.Println("i:", i, ":: err: ", err)
+			}
+
+			// end := time.Now()
+			// log.Printf("listen duration: %s (%q)", end.Sub(start), buf[:n])
+		}
+	}()
+	fmt.Println("server started on", addr)
+
+	select { // TODO: learn more about select
+	case err = <-errChan:
+	}
+	return
+}
+
+func (c *Cell) UpdateNeighbors() {
+	for _, n := range c.Neighbors() {
+		go c.Update(n)
+	}
+}
+
+func (c *Cell) Update(n *Cell) (err error) {
+	// send self status to a neighbor
+	maxSleep := MaxWidth * MaxHeight / 6
+	jitter := rand.Intn(maxSleep)
+	sleep := time.Duration(jitter)
+	time.Sleep(sleep * time.Millisecond)
+	d := fmt.Sprintf("%s %t", c.Name(), c.alive)
+	err = SendUDP(d, n)
+	if err != nil {
+		log.Printf("Error updating neighbor %s: %s\n", n.Name(), err)
+	}
+	return
+}
+
+func (c *Cell) GetNextLiveness() bool {
+	totalAlive := 0
+	for _, n := range c.Neighbors() {
+		alive, ok := Statuses[n.Name()]
+		if !ok { // if any neighbor doesn't exist yet, default to alive
+			return true
+		}
+		if alive {
+			totalAlive++
+		}
+	}
+	fmt.Println("totalAlive", totalAlive)
+
+	// Any live cell with two or three live neighbors lives on to the next generation.
+	// Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+	// Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+	// Any live cell with more than three live neighbors dies, as if by overpopulation.
+	beAlive := false
+	if c.alive == true {
+		beAlive = totalAlive == 2 || totalAlive == 3 // 2 or 3
+	} else {
+		beAlive = totalAlive == 3 // exactly 3
+	}
+	return beAlive
+}
