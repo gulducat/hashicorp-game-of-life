@@ -101,7 +101,7 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 	}
 	// addr = strings.Replace(addr, "127.0.0.1", "host.docker.internal", -1) // TODO: undo this osx kludge.
 
-	// start := time.Now()
+	start := time.Now()
 
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
@@ -112,7 +112,7 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 
 	// TODO: remember: this fixed my "jobs dont die becuause frozen" bug
 	now := time.Now()
-	err = conn.SetDeadline(now.Add(100 * time.Millisecond)) // TODO: longer when run on a cluster?
+	err = conn.SetDeadline(now.Add(150 * time.Millisecond)) // TODO: longer when run on a cluster?
 	if err != nil {
 		log.Println("Error setting deadline:", err)
 	}
@@ -131,8 +131,8 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 	}
 	// log.Println("clnt recv", string(buf))
 
-	// end := time.Now()
-	// log.Printf("SendUDP %q to %q duration: %s", daters, cell.Name(), end.Sub(start))
+	end := time.Now()
+	log.Printf("SendUDP %q to %q duration: %s", daters, cell.Name(), end.Sub(start))
 
 	return
 }

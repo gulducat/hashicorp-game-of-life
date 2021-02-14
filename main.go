@@ -113,10 +113,12 @@ func GetSelf() *Cell {
 
 func Ticker() {
 	ui := NewUI(logger, 0)
-	sleep := time.Duration(MaxWidth * MaxHeight / 5)
-	if sleep < 300 {
-		sleep = 300
+	inc := MaxWidth * MaxHeight / 5
+	if inc < 200 {
+		inc = 200
 	}
+	TickTime = inc
+	sleep := time.Duration(inc)
 	for {
 		ui.UpdateGrid()
 		if NextPattern != "" {
@@ -125,6 +127,7 @@ func Ticker() {
 		} else {
 			SendToAll("tick tock")
 		}
+		log.Println("Ticker sleep ms:", TickTime)
 		time.Sleep(sleep * time.Millisecond)
 	}
 }
@@ -157,7 +160,6 @@ func CacheAllCells() {
 }
 
 func SendToAll(msg string) {
-	// TODO: move logic from cli to "api" so it can cache service addresses.
 	// TODO: WaitGroup is only needed for running from laptop. (?)
 	var wg sync.WaitGroup // TODO: does this concurrency really help?  yes, yes it most certainly does.
 	start := time.Now()
@@ -170,5 +172,5 @@ func SendToAll(msg string) {
 	}
 	wg.Wait()
 	end := time.Now()
-	log.Println("SendToAll duration:", end.Sub(start))
+	log.Println("SendToAll '", msg, "' duration:", end.Sub(start))
 }

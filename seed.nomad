@@ -1,10 +1,10 @@
 locals {
-  # good for 8 clients (c5.2xlarge)
-  # w = 44
-  # h = 30
+  # good for 8 clients (c5.2xlarge), ~270 per node
+  w = 56
+  h = 38
   # good for laptop
-  w = 8
-  h = 8
+  # w = 9
+  # h = 7
 }
 
 job "gol" {
@@ -47,13 +47,17 @@ job "gol" {
       }
       resources {
         cpu    = 1200
-        memory = 75
+        memory = 100
       }
     }
   }
 
   group "cells" {
-    count = (local.w * local.h) + 1 # why 2 and not 1? ...
+    count = (local.w * local.h) + 1
+    restart {
+      attempts = 10
+      delay    = "5s"
+    }
     network {
       port "udp" {}
     }
@@ -73,9 +77,9 @@ job "gol" {
         MAX_H = local.h
       }
       resources {
-        # each job doesn't really need this much cpu, but things go sideways above this value,
+        # each job doesn't really need this much cpu, but things go sideways below this value (on laptop...?)
         # and this gets us to ~180 jobs per client anyway, which is pretty solid.
-        cpu    = 150
+        cpu    = 100
         memory = 50
       }
       logs {

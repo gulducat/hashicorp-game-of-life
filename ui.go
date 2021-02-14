@@ -16,6 +16,7 @@ import (
 var httpPort = os.Getenv("NOMAD_PORT_http")
 var Grid string
 var NextPattern string
+var TickTime int
 
 func ApiListen() {
 	logger.Info("running api")
@@ -49,6 +50,7 @@ func (ui *UI) ListenAndServe(address string) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
+	r.Use(middleware.ThrottleBacklog(8, 8, 1*time.Second))
 	r.Get("/", ui.HandleBrowser)
 	r.Get("/raw", ui.HandleRaw)
 	r.Get("/p/{pattern}", ui.HandlePattern)
@@ -72,6 +74,8 @@ func (ui *UI) UpdateGrid() {
 	var name string
 	Mut.RLock()
 	defer Mut.RUnlock()
+	ui.cacheRW.Lock()
+	defer ui.cacheRW.Unlock()
 	Grid = ""
 	for y := 1; y <= MaxHeight; y++ {
 		for x := 1; x <= MaxWidth; x++ {
@@ -93,6 +97,8 @@ func (ui *UI) UpdateGrid() {
 }
 
 func (ui *UI) HandleRaw(w http.ResponseWriter, r *http.Request) {
+	ui.cacheRW.RLock()
+	defer ui.cacheRW.RUnlock()
 	w.Write([]byte(Grid))
 }
 
@@ -100,7 +106,7 @@ func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
 	// msg := "<html><head><style>body {background-color: #000;}</style><meta http-equiv=\"refresh\" content=\"0.1\" /><body>\n"
 	// msg := strings.ReplaceAll(Grid, "\n", "<br />\n")
 	// msg += "\n</body></head></html>"
-	msg := `<!doctype html>
+	msg := fmt.Sprintf(`<!doctype html>
 <html>
 	<head>
 	  <title>HashiCorp's Game of Life</title>
@@ -125,10 +131,10 @@ func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
 		  };
 		  xhr.send();
 		}
-		setInterval(fetch, 100);
+		setInterval(fetch, %d);
 	  </script>
 	</body>
 </html>
-`
+`, TickTime/2)
 	w.Write([]byte(msg))
 }
