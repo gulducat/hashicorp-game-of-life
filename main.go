@@ -113,18 +113,18 @@ func GetSelf() *Cell2 {
 
 func Ticker() {
 	ui := NewUI(logger, 0)
-	sleep := time.Duration(MaxWidth * MaxHeight / 2)
-	if sleep < 100 {
-		sleep = 100
+	sleep := time.Duration(MaxWidth * MaxHeight / 5)
+	if sleep < 300 {
+		sleep = 300
 	}
 	for {
 		ui.UpdateGrid()
-		// TODO: collapse to a single SendToAll()
 		if NextPattern != "" {
 			SendToAll("pattern " + NextPattern)
 			NextPattern = ""
+		} else {
+			SendToAll("tick tock")
 		}
-		SendToAll("tick tock")
 		time.Sleep(sleep * time.Millisecond)
 	}
 }

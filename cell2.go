@@ -5,7 +5,6 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +20,7 @@ type Cell2 struct {
 	addr  string
 	n     map[string]*Cell2
 
-	pattern string
-	mut     sync.RWMutex
+	mut sync.RWMutex
 	// server *UDPServer
 }
 
@@ -140,6 +138,24 @@ func (c *Cell2) Neighbors() map[string]*Cell2 {
 	return valid
 }
 
+func (c *Cell2) Tick(seed *Cell2) {
+	tickStart := time.Now()
+
+	// avoid race: wait for all cells to get the tick.
+	// it takes up to ~20ms for seed to finish 49 cells on laptop
+	// NOTE: SendUDP's Deadline must be longer than this*8.
+	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
+	time.Sleep(sleep * time.Millisecond)
+
+	c.alive = c.GetNextLiveness()
+	c.UpdateNeighbors()
+	go c.Update(seed)
+
+	tickEnd := time.Now()
+	tickDelta := tickEnd.Sub(tickStart)
+	log.Println("tickDelta:", tickDelta)
+}
+
 func (c *Cell2) Listen() (err error) {
 	// addr := os.Getenv("NOMAD_ADDR_udp")
 	addr := "0.0.0.0:" + UdpPort
@@ -171,7 +187,6 @@ func (c *Cell2) Listen() (err error) {
 			// log.Printf("serv recv %s", msg)
 
 			// start := time.Now()
-			ticks := 0
 			Mut.Lock()
 
 			parts := strings.Split(msg, " ")
@@ -181,41 +196,17 @@ func (c *Cell2) Listen() (err error) {
 				break
 
 			case "tick":
-				// log.Printf("Betwixt ticks: %d", twixtTicks)
-				// twixtTicks = 0
+				c.Tick(&seed)
 
-				// avoid race: wait for all cells to get the tick.
-				// it takes up to ~20ms for seed to finish 49 cells on laptop
-				// NOTE: SendUDP's Deadline must be longer than this*8.
-				sleep := time.Duration(MaxWidth * MaxHeight / 25) // TODO: hmmm.. magic.
-				time.Sleep(sleep * time.Millisecond)
-
-				if c.pattern == "random" {
+			case "pattern":
+				p := parts[1]
+				if p == "random" {
 					rand.Seed(time.Now().UnixNano())
 					c.alive = rand.Intn(3) > 1 // ~1/3 of the time
 				} else {
-					if !ApplyPattern(c) {
-						c.alive = c.GetNextLiveness()
-					}
+					ApplyPattern(c, p)
 				}
-				c.pattern = ""
-
-				c.UpdateNeighbors()
-				go c.Update(&seed)
-				ticks++
-
-			case "pattern":
-				if c.IsSeed() {
-					// TODO: put this in a function, it's also in the CLI "random" case right now
-					p := os.Args[2]
-					_, ok := Patterns[p]
-					if !ok {
-						log.Fatalf("Invalid pattern %q", p)
-					}
-					SendToAll("pattern " + p)
-				} else {
-					c.pattern = parts[1]
-				}
+				c.Tick(&seed)
 
 			default: // updates from neighbors
 				// twixtTicks++

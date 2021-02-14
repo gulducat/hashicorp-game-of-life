@@ -130,12 +130,8 @@ func ParsePattern(name string, offsetX, offsetY int) (map[string]bool, error) {
 	return m, nil
 }
 
-func ApplyPattern(cell *Cell2) bool {
-	if cell.pattern == "" {
-		return false
-	}
-
-	pat, err := ParsePattern(cell.pattern, 1, 1)
+func ApplyPattern(cell *Cell2, pattern string) bool {
+	pat, err := ParsePattern(pattern, 1, 1)
 	if err != nil {
 		return false
 	}
