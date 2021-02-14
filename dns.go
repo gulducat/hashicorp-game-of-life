@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
+	"time"
 )
 
 const datacenter = "dc1"
@@ -31,6 +33,19 @@ type ConsulDNS struct {
 }
 
 func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) {
+	for x := 0; x < 5; x++ {
+		addr, err = c.GetServiceAddrOnce(serviceName)
+		if err == nil {
+			return
+		}
+		minSleep := x * 100
+		sleep := time.Duration(minSleep + rand.Intn(100))
+		time.Sleep(sleep * time.Millisecond)
+	}
+	return
+}
+
+func (c *ConsulDNS) GetServiceAddrOnce(serviceName string) (addr string, err error) {
 	name := serviceName + ".service." + datacenter + ".consul"
 
 	_, addrs, err := c.r.LookupSRV(c.ctx, "", "", name)
