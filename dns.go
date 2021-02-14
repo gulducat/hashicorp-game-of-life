@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-const datacenter = "dc1"
-
 func NewConsulDNS() *ConsulDNS {
 	consulDnsAddr := strings.Replace(ConsulAddr, "8500", "8600", 1)
 	consulDnsAddr = strings.Replace(consulDnsAddr, "http://", "", 1)

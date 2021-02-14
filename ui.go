@@ -12,17 +12,9 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-var httpPort = os.Getenv("NOMAD_PORT_http")
-var Grid string
-var NextPattern string
-var TickTime int
-
 func ApiListen() {
 	logger.Info("running api")
 	ui := NewUI(logger, time.Second/2)
-	if httpPort == "" {
-		httpPort = "80"
-	}
 	logger.Info("listening on " + ":" + httpPort)
 	if err := ui.ListenAndServe(":" + httpPort); err != nil {
 		logger.Error(err.Error())

@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"time"
 )
-
-var UdpPort = os.Getenv("NOMAD_HOST_PORT_udp")
 
 func SendUDP(daters string, cell *Cell) (err error) {
 	for i := 0; i < 5; i++ {

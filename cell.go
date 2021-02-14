@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-var Statuses = make(map[string]bool) // TODO: not this
-var Mut sync.RWMutex
-
 type Cell struct {
 	x     int
 	y     int

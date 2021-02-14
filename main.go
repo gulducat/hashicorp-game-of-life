@@ -10,17 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/hashicorp/go-hclog"
 )
-
-var MaxWidth = 0
-var MaxHeight = 0
-
-const TmpDir = "/tmp/hgol"
-
-// lazy "global" api clients
-var logger = hclog.New(nil)
 
 func main() {
 	// HACK - only let one seed job run, the one we care about for waypoint (?)
@@ -30,8 +20,6 @@ func main() {
 	}
 	SetVars()
 
-	MaxWidth, _ = strconv.Atoi(os.Getenv("MAX_W"))
-	MaxHeight, _ = strconv.Atoi(os.Getenv("MAX_H"))
 	// logger := hclog.New(nil)
 	arg := "seed"
 	if len(os.Args) > 1 {
@@ -147,8 +135,6 @@ func Run() {
 	}
 
 }
-
-var AllCells []*Cell
 
 func CacheAllCells() {
 	for x := 1; x <= MaxWidth; x++ {
