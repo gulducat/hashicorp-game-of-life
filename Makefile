@@ -43,7 +43,7 @@ api:
 	nomad run api.nomad
 
 seed: #build
-	nomad run seed.nomad
+	nomad run seed.nomad >/dev/null
 
 ui:
 	while true; do \
@@ -62,31 +62,26 @@ s3:
 	aws s3 cp hashicorp-game-of-life s3://game-of-life-hackathon/hashicorp-game-of-life
 
 upload: servers.list
-	GOARCH=amd64 GOOS=linux go build -o gol-linux .
+	GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o gol-linux .
 	for l in $(shell cat servers.list); do \
-	  rsync -avP gol-linux ubuntu@$$l:~/ ;\
-	  ssh ubuntu@$$l 'sudo cp gol-linux /usr/local/bin/hashicorp-game-of-life' ;\
+	  rsync -avP gol-linux ubuntu@$$l:~/ >/dev/null || return 1 ;\
+	  ssh ubuntu@$$l 'sudo cp gol-linux /usr/local/bin/hashicorp-game-of-life' || return 1 ;\
+	  printf '.' ;\
 	done
+	@echo
 
 get-ip:
 	@echo $(shell curl -sS $(CONSUL_HTTP_ADDR)/v1/catalog/service/0-0-http | jq -r '.[].Address'):$(shell curl -sS $(CONSUL_HTTP_ADDR)/v1/catalog/service/0-0-http | jq -r '.[].ServicePort')
 
-# get-ip:
-# 	@echo localhost:$(shell curl -s $(CONSUL_HTTP_ADDR)/v1/catalog/service/0-0-http | jq -r '.[].ServicePort')
-
 ui2:
 	while true; do \
 	  curl http://$(shell make get-ip 2>/dev/null)/raw ;\
-	  echo --- ;\
 	  sleep 0.1 ;\
 	  clear ;\
 	done
 
 clean:
-	#nomad stop -purge 0-0 && bash -c 'for x in {1..15}; do n="$$(nomad status | wc -l)"; echo $$x $$n; test $$n -le 2 && break; sleep 1; done' || true
-	nomad status | awk '/system|service/ {print$$1}' | while read j; do \
-		curl -sX DELETE $(NOMAD_ADDR)/v1/job/$$j?purge=true >/dev/null ;\
-	done
+	nomad stop -purge gol || true
 	curl -X PUT $(NOMAD_ADDR)/v1/system/gc
 
 kill:
