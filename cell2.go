@@ -138,7 +138,7 @@ func (c *Cell2) Neighbors() map[string]*Cell2 {
 	return valid
 }
 
-func (c *Cell2) Tick(seed *Cell2) {
+func (c *Cell2) Tick(seed *Cell2, p string) {
 	tickStart := time.Now()
 
 	// avoid race: wait for all cells to get the tick.
@@ -147,7 +147,15 @@ func (c *Cell2) Tick(seed *Cell2) {
 	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
 	time.Sleep(sleep * time.Millisecond)
 
-	c.alive = c.GetNextLiveness()
+	if p == "random" {
+		rand.Seed(time.Now().UnixNano())
+		c.alive = rand.Intn(3) > 1 // ~1/3 of the time
+	} else {
+		if !ApplyPattern(c, p) {
+			c.alive = c.GetNextLiveness()
+		}
+	}
+
 	c.UpdateNeighbors()
 	go c.Update(seed)
 
@@ -196,17 +204,10 @@ func (c *Cell2) Listen() (err error) {
 				break
 
 			case "tick":
-				c.Tick(&seed)
+				c.Tick(&seed, "")
 
 			case "pattern":
-				p := parts[1]
-				if p == "random" {
-					rand.Seed(time.Now().UnixNano())
-					c.alive = rand.Intn(3) > 1 // ~1/3 of the time
-				} else {
-					ApplyPattern(c, p)
-				}
-				c.Tick(&seed)
+				c.Tick(&seed, parts[1])
 
 			default: // updates from neighbors
 				// twixtTicks++
