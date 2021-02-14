@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,7 +49,8 @@ func (ui *UI) ListenAndServe(address string) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
-	r.Get("/", ui.HandleGet)
+	r.Get("/", ui.HandleBrowser)
+	r.Get("/raw", ui.HandleRaw)
 	r.Get("/p/{pattern}", ui.HandlePattern)
 	return http.ListenAndServe(address, r)
 }
@@ -92,15 +92,43 @@ func (ui *UI) UpdateGrid() {
 	}
 }
 
-func (ui *UI) HandleGet(w http.ResponseWriter, r *http.Request) {
-	var msg string
-	if strings.Contains(r.Header.Get("User-Agent"), "curl") {
-		msg = Grid
-	} else {
-		msg = "<html><head><style>body {background-color: #000;}</style><meta http-equiv=\"refresh\" content=\"0.1\" /><body>\n"
-		// msg += strings.Sub(Grid, "ok")
-		msg += strings.ReplaceAll(Grid, "\n", "<br />\n")
-		msg += "\n</body></head></html>"
-	}
+func (ui *UI) HandleRaw(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(Grid))
+}
+
+func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
+	// msg := "<html><head><style>body {background-color: #000;}</style><meta http-equiv=\"refresh\" content=\"0.1\" /><body>\n"
+	// msg := strings.ReplaceAll(Grid, "\n", "<br />\n")
+	// msg += "\n</body></head></html>"
+	msg := `<!doctype html>
+<html>
+	<head>
+	  <title>HashiCorp's Game of Life</title>
+	  <meta charset="utf-8">
+	  <style>
+	    body {background-color: #000}
+	  </style>
+	</head>
+	<body>
+	  <div id="grid"></div>
+	  <script>
+		function fetch(){
+		  var xhr = new XMLHttpRequest();
+		  xhr.open("GET", "/raw");
+		  xhr.onload = function () {
+			if (this.status==200) {
+			  document.getElementById("grid").innerHTML = this.response.replaceAll("\n", "<br>\n");
+			} else {
+			  console.log(this.status);
+			  console.log(this.response);
+			}
+		  };
+		  xhr.send();
+		}
+		setInterval(fetch, 100);
+	  </script>
+	</body>
+</html>
+`
 	w.Write([]byte(msg))
 }

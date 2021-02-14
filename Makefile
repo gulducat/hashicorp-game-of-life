@@ -76,9 +76,10 @@ get-ip:
 
 ui2:
 	while true; do \
-	  curl http://$(shell make get-ip 2>/dev/null) ;\
+	  curl http://$(shell make get-ip 2>/dev/null)/raw ;\
 	  echo --- ;\
-	  sleep 0.5 ;\
+	  sleep 0.1 ;\
+	  clear ;\
 	done
 
 clean:
