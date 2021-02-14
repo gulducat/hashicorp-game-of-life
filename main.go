@@ -54,21 +54,16 @@ func main() {
 	case "api":
 		ApiListen() // "api" is gone, long live "0-0"
 
-	case "more":
-		// SendToAll("random xxx")
-		SendToAll("pattern random")
-		// SendUDP("pattern random", &seed)
-
 	case "pattern":
-		// SendUDP("pattern "+os.Args[2], &seed)
-		// Sleepy()
-		// time.Sleep(200 * time.Millisecond)
 		p := os.Args[2]
-		_, ok := Patterns[p]
-		if !ok {
-			log.Fatalf("Invalid pattern %q", p)
+		cdns := NewConsulDNS()
+		addr, err := cdns.GetServiceAddr("0-0-http")
+		if err != nil {
+			log.Fatal("OH NO:", err)
 		}
-		SendToAll("pattern " + p)
+		a := NewAPI("http://"+addr, logger)
+		_, body := a.Get(fmt.Sprintf("/p/%s", p))
+		fmt.Println(string(body))
 
 	case "dnstest":
 		// fmt.Println(Consul.Service("0-0"))
@@ -124,6 +119,11 @@ func Ticker() {
 	}
 	for {
 		ui.UpdateGrid()
+		// TODO: collapse to a single SendToAll()
+		if NextPattern != "" {
+			SendToAll("pattern " + NextPattern)
+			NextPattern = ""
+		}
 		SendToAll("tick tock")
 		time.Sleep(sleep * time.Millisecond)
 	}

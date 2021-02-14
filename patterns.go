@@ -19,6 +19,8 @@ import (
 */
 
 var Patterns = map[string]string{
+	"random": "",
+
 	// oscillators
 	"blinker": `
 .*.
@@ -153,7 +155,5 @@ func ApplyPattern(cell *Cell2) bool {
 			Statuses[k] = false
 		}
 	}
-
-	cell.pattern = ""
 	return true
 }

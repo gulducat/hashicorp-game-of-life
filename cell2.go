@@ -190,37 +190,17 @@ func (c *Cell2) Listen() (err error) {
 				sleep := time.Duration(MaxWidth * MaxHeight / 25) // TODO: hmmm.. magic.
 				time.Sleep(sleep * time.Millisecond)
 
-				// if there's a c.pattern, apply it in memory,
-				// otherwise compute my liveness from memory of updates from neighbors, and update neighbors
-				// if there's no c.pattern, compute my liveness from memory of updates from neighbors, and update neighbors
-				// otherwise, apply only apply the pattern in memory
-
-				// newLiveness := c.GetNextLiveness()
-				// changed := c.alive != newLiveness
-				// c.alive = newLiveness
-
-				if !ApplyPattern(c) {
-					if c.pattern == "random" {
-						rand.Seed(time.Now().UnixNano())
-						c.alive = rand.Intn(3) > 1 // ~1/3 of the time
-					} else {
+				if c.pattern == "random" {
+					rand.Seed(time.Now().UnixNano())
+					c.alive = rand.Intn(3) > 1 // ~1/3 of the time
+				} else {
+					if !ApplyPattern(c) {
 						c.alive = c.GetNextLiveness()
 					}
 				}
-				// if !ApplyPattern(c) {
-				// 	// if changed || ticks < 5 { // update more at first in case they're not alive yet
-				// 	// }
-				// }
+				c.pattern = ""
+
 				c.UpdateNeighbors()
-
-				// aliveChanged := false
-				// patternApplied := ApplyPattern(c)
-
-				// if !ApplyPattern(c) {
-				// 	if c.SetAlive() { // only update on change
-				// 		go c.UpdateNeighbors()
-				// 	}
-				// }
 				go c.Update(&seed)
 				ticks++
 

@@ -15,6 +15,7 @@ import (
 // var httpPort = os.Getenv("NOMAD_PORT_waypoint")
 var httpPort = os.Getenv("NOMAD_PORT_http")
 var Grid string
+var NextPattern string
 
 func ApiListen() {
 	logger.Info("running api")
@@ -49,7 +50,20 @@ func (ui *UI) ListenAndServe(address string) error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Get("/", ui.HandleGet)
+	r.Get("/p/{pattern}", ui.HandlePattern)
 	return http.ListenAndServe(address, r)
+}
+
+func (ui *UI) HandlePattern(w http.ResponseWriter, r *http.Request) {
+	p := chi.URLParam(r, "pattern")
+	_, ok := Patterns[p]
+	if !ok {
+		msg := fmt.Sprintf("Invalid pattern %q", p)
+		http.Error(w, msg, 404)
+		return
+	}
+	NextPattern = p
+	w.Write([]byte("set next pattern:" + p + "\n"))
 }
 
 func (ui *UI) UpdateGrid() {
