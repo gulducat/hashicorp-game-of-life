@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-// var httpPort = os.Getenv("NOMAD_PORT_waypoint")
 var httpPort = os.Getenv("NOMAD_PORT_http")
 var Grid string
 var NextPattern string
@@ -26,8 +25,6 @@ func ApiListen() {
 	}
 	logger.Info("listening on " + ":" + httpPort)
 	if err := ui.ListenAndServe(":" + httpPort); err != nil {
-		// logger.Info("listening on " + ":80")
-		// if err := ui.ListenAndServe(":80"); err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
@@ -83,7 +80,6 @@ func (ui *UI) UpdateGrid() {
 			name = fmt.Sprintf("%d-%d", x, y)
 			alive, ok := Statuses[name]
 			if ok {
-				// ui.logger.Info("GET", name, "alive:", alive)
 				if alive {
 					val = "🟢"
 				} else {
@@ -103,9 +99,6 @@ func (ui *UI) HandleRaw(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
-	// msg := "<html><head><style>body {background-color: #000;}</style><meta http-equiv=\"refresh\" content=\"0.1\" /><body>\n"
-	// msg := strings.ReplaceAll(Grid, "\n", "<br />\n")
-	// msg += "\n</body></head></html>"
 	msg := fmt.Sprintf(`<!doctype html>
 <html>
 	<head>

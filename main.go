@@ -21,7 +21,6 @@ const TmpDir = "/tmp/hgol"
 
 // lazy "global" api clients
 var logger = hclog.New(nil)
-var Consul = NewConsul(logger)
 
 func main() {
 	// HACK - only let one seed job run, the one we care about for waypoint (?)
@@ -29,6 +28,7 @@ func main() {
 	if os.Getenv("NOMAD_HOST_PORT_http") == "" && os.Getenv("NOMAD_ALLOC_INDEX") == "0" {
 		select {} // block forever instead of killing so nomad doesn't try to replace.
 	}
+	SetVars()
 
 	MaxWidth, _ = strconv.Atoi(os.Getenv("MAX_W"))
 	MaxHeight, _ = strconv.Atoi(os.Getenv("MAX_H"))

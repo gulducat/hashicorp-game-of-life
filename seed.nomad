@@ -29,10 +29,6 @@ job "gol" {
       port = "http"
     }
     task "0-0" {
-      lifecycle {
-        hook    = "prestart"
-        sidecar = false
-      }
       driver = "raw_exec"
       config {
         # command = "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/mathy/mathy"
