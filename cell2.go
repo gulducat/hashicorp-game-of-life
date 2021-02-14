@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -42,6 +41,22 @@ func (c *Cell2) Name() string {
 	return fmt.Sprintf("%d-%d", c.x, c.y)
 }
 
+func (c *Cell2) Service() string {
+	if c.IsSeed() {
+		return c.Name()
+	}
+	return fmt.Sprintf("CELL-%d", c.Index())
+}
+
+func (c *Cell2) Index() int {
+	width := MaxWidth
+	if c.x == 0 && c.y == 0 {
+		return 0
+	}
+	idx := c.x + width*c.y - width
+	return idx
+}
+
 func (c *Cell2) IsSeed() bool {
 	return c.Name() == "0-0"
 }
@@ -61,7 +76,7 @@ func (c *Cell2) Address() (string, error) {
 
 	// turns out dns is wayyyy faster than http
 	cdns := NewConsulDNS()
-	addr, err := cdns.GetServiceAddr(c.Name())
+	addr, err := cdns.GetServiceAddr(c.Service())
 	if err != nil {
 		log.Println(err)
 		c.addr = ""
@@ -73,7 +88,7 @@ func (c *Cell2) Address() (string, error) {
 }
 
 func (c *Cell2) Exists() bool {
-	return Consul.ServiceExists(c.Name())
+	return Consul.ServiceExists(c.Service())
 }
 
 func (c *Cell2) WaitUntilExists(seconds int) bool {
@@ -369,19 +384,4 @@ func (c *Cell2) GetNextLiveness() bool {
 
 	// }
 	// return c.alive
-}
-
-func (c *Cell2) Create() {
-	Nomad.CreateJob(c)
-}
-
-func (c *Cell2) Destroy() {
-	fmt.Println("destroying self")
-	Nomad.DeleteJob(c)
-}
-
-func (c *Cell2) GetJobspec() (job NomadJob) {
-	spec := strings.Replace(DefaultJob, "0-0", c.Name(), -1)
-	json.Unmarshal([]byte(spec), &job)
-	return
 }

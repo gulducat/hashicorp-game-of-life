@@ -42,9 +42,7 @@ p-%:
 api:
 	nomad run api.nomad
 
-seed: build
-	# ./hashicorp-game-of-life seed
-	# docker run --rm -it -e NOMAD_ADDR -e CONSUL_HTTP_ADDR gol:local hashicorp-game-of-life seed
+seed: #build
 	nomad run seed.nomad
 
 ui:

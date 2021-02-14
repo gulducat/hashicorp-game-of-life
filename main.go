@@ -6,44 +6,32 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 )
 
-// 15*16 = 240
-// 24*21 = 504 / 7 clients = 72 per node
-// const MaxWidth = 24
-// const MaxHeight = 21
-
-// const MaxWidth = 15
-// const MaxHeight = 12
-
-// TODO: why does the ui start being wobbly?
-// good for 4 clients; 77 per node
-const MaxWidth = 18
-const MaxHeight = 17
-
-// 6 clients, 77 per
-// const MaxWidth = 23
-// const MaxHeight = 20
-
-// 11x10 is too big in vagrant (nomad gets real sad)
-// *INTERESTINGLY* it runs better in a vagrant, way less host CPU
-// const MaxWidth = 3
-// const MaxHeight = 3
+var MaxWidth = 0
+var MaxHeight = 0
 
 const TmpDir = "/tmp/hgol"
 
 // lazy "global" api clients
 var logger = hclog.New(nil)
 var Consul = NewConsul(logger)
-var Nomad = NewNomad(logger)
 
 func main() {
+	// HACK - only let one seed job run, the one we care about for waypoint (?)
+	// only our main seed job will have an "http" port.
+	if os.Getenv("NOMAD_HOST_PORT_http") == "" && os.Getenv("NOMAD_ALLOC_INDEX") == "0" {
+		select {} // block forever instead of killing so nomad doesn't try to replace.
+	}
+
+	MaxWidth, _ = strconv.Atoi(os.Getenv("MAX_W"))
+	MaxHeight, _ = strconv.Atoi(os.Getenv("MAX_H"))
 	// logger := hclog.New(nil)
 	arg := "seed"
 	if len(os.Args) > 1 {
@@ -65,10 +53,6 @@ func main() {
 
 	case "api":
 		ApiListen() // "api" is gone, long live "0-0"
-
-	case "seed":
-		seed := NewCell2("0-0")
-		seed.Create()
 
 	case "more":
 		// SendToAll("random xxx")
@@ -98,8 +82,33 @@ func main() {
 	}
 }
 
+func GetName() (name string) {
+	idx, err := strconv.Atoi(os.Getenv("NOMAD_ALLOC_INDEX"))
+	if err != nil {
+		fmt.Println("ERR getting alloc idx:", err)
+		return name
+	}
+	width, err := strconv.Atoi(os.Getenv("MAX_W"))
+	if err != nil {
+		fmt.Println("ERR getting MAX_W")
+	}
+
+	var x, y int
+	if idx == 0 {
+		return "0-0"
+	}
+	x = idx % width
+	if x == 0 {
+		x = width
+	}
+	y = (idx-1)/width + 1
+
+	name = fmt.Sprintf("%d-%d", x, y)
+	return name
+}
+
 func GetSelf() *Cell2 {
-	name := os.Getenv("NOMAD_JOB_NAME")
+	name := GetName()
 	if name == "" {
 		log.Fatal("aint a nomad job")
 	}
@@ -120,65 +129,20 @@ func Ticker() {
 	}
 }
 
-func WatchSeed(s, c *Cell2) {
-	defer c.Destroy()
-	dead := 0
-	// allow seed going down for up to 10 seconds
-	for dead < 5 {
-		time.Sleep(2 * time.Second)
-		err := SendUDP("ping pong", s)
-		if err == nil {
-			dead = 0
-		} else {
-			dead++
-		}
-	}
-}
-
 func Run() {
 	seed := NewCell2("0-0")
 	self := GetSelf()
 	isSeed := seed.Name() == self.Name()
 	fmt.Println("self:", self.Name())
 
-	// defer self.Destroy()
-
-	if !isSeed {
-		if !seed.WaitUntilExists(10) { // try for 10 seconds
-			fmt.Println("no service for seed 0-0 at launch")
-			self.Destroy()
-			return
-		}
-	}
-
-	neighbors := self.Neighbors()
-	EnsureJobs(self, neighbors)
-
 	if isSeed {
 		go self.Listen()
 		go Ticker()
 		ApiListen()
 	} else {
-		go WatchSeed(&seed, self)
 		self.Listen()
 	}
 
-}
-
-func EnsureJobs(self *Cell2, cells map[string]*Cell2) {
-	for name, c := range cells {
-		// cells above and below already exist, one of them created me.
-		if self.x > c.x || self.y > c.y {
-			continue
-		}
-		// try not to stampede nomad api
-		sleep := time.Duration(100 + rand.Intn(200))
-		time.Sleep(sleep * time.Millisecond)
-		if !c.Exists() {
-			fmt.Println("Creating job:", name)
-			c.Create()
-		}
-	}
 }
 
 var AllCells []*Cell2
