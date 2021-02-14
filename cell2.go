@@ -278,7 +278,7 @@ func (c *Cell2) UpdateNeighbors() {
 
 func (c *Cell2) Update(n *Cell2) (err error) {
 	// send self status to a neighbor
-	maxSleep := MaxWidth * MaxHeight / 4
+	maxSleep := MaxWidth * MaxHeight / 6
 	jitter := rand.Intn(maxSleep)
 	sleep := time.Duration(jitter)
 	time.Sleep(sleep * time.Millisecond)
