@@ -69,7 +69,7 @@ job "gol" {
       port "udp" {}
     }
     service {
-      name = "CELL-${NOMAD_ALLOC_INDEX}"
+      name = "cell-${NOMAD_ALLOC_INDEX}"
       port = "udp"
     }
     task "cell" {

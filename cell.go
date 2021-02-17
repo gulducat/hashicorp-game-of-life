@@ -39,7 +39,7 @@ func (c *Cell) Service() string {
 	if c.IsSeed() {
 		return c.Name()
 	}
-	return fmt.Sprintf("CELL-%d", c.Index())
+	return fmt.Sprintf("cell-%d", c.Index())
 }
 
 func (c *Cell) Index() int {
