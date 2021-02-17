@@ -1,10 +1,14 @@
 locals {
   # good for 8 clients (c5.2xlarge), ~270 per node
-  w = 56
-  h = 38
+  # w = 56
+  # h = 38
   # good for laptop
-  # w = 9
-  # h = 7
+  w = 4
+  h = 4
+
+  http = 8080
+
+  consul_addr = "http://192.168.1.254:8500"
 }
 
 job "gol" {
@@ -17,7 +21,7 @@ job "gol" {
     network {
       port "udp" {}
       port "http" {
-        static = 8080
+        static = local.http
       }
     }
     service {
@@ -28,18 +32,25 @@ job "gol" {
       name = "0-0-http"
       port = "http"
     }
-    task "0-0" {
+    task "seed" {
       driver = "raw_exec"
       config {
-        # command = "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/mathy/mathy"
         command = "hashicorp-game-of-life"
         args    = ["run"]
-        # command = "bash"
-        # args    = ["-c", "env | grep NAME; sleep 3600"]
       }
+      # leaving docker here from trying to get waypoint to work
+      # driver = "docker"
+      # config {
+      #   # image = "gol:local"
+      #   image = "gulducat/hashicorp-game-of-life:latest"
+      #   # image = "${image}"
+      #   ports = ["http", "udp"]
+      # }
       env {
-        MAX_W = local.w
-        MAX_H = local.h
+        # PORT             = local.http # for waypoint
+        MAX_W            = local.w
+        MAX_H            = local.h
+        CONSUL_HTTP_ADDR = local.consul_addr
       }
       resources {
         cpu    = 1200
@@ -64,17 +75,16 @@ job "gol" {
     task "cell" {
       driver = "raw_exec"
       config {
-        # command = "/Users/danielbennett/git/gulducat/hashicorp-game-of-life/mathy/mathy"
         command = "hashicorp-game-of-life"
         args    = ["run"]
       }
       env {
-        MAX_W = local.w
-        MAX_H = local.h
+        MAX_W            = local.w
+        MAX_H            = local.h
+        CONSUL_HTTP_ADDR = local.consul_addr
       }
       resources {
-        # each job doesn't really need this much cpu, but things go sideways below this value (on laptop...?)
-        # and this gets us to ~180 jobs per client anyway, which is pretty solid.
+        # each job doesn't really need this much cpu, but things go sideways below this value
         cpu    = 100
         memory = 50
       }
