@@ -6,13 +6,15 @@ locals {
   w = 4
   h = 4
 
-  http = 8080
+  http = 8081
 
-  consul_addr = "http://192.168.1.254:8500"
+  # consul_addr = "http://192.168.1.254:8500" # TODO: variable?
+  consul_addr = "http://localhost:8500" # TODO: variable?
 }
 
 job "gol" {
   datacenters = ["dc1"]
+
   group "seed" {
     restart {
       attempts = 10
@@ -31,6 +33,11 @@ job "gol" {
     service {
       name = "0-0-http"
       port = "http"
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.seed.tls=false",
+        "traefik.http.routers.seed.rule=Path(`/`) || Path(`/raw`) || PathPrefix(`/p`)",
+      ]
     }
     task "seed" {
       driver = "raw_exec"
