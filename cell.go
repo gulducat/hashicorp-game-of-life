@@ -118,6 +118,9 @@ func (c *Cell) Tick(seed *Cell, p string) {
 	// it takes up to ~20ms for seed to finish 49 cells on laptop
 	// NOTE: SendUDP's Deadline must be longer than this*8.
 	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
+	if sleep < 25 {
+		sleep = 25
+	}
 	time.Sleep(sleep * time.Millisecond)
 
 	if p == "random" {
@@ -215,6 +218,9 @@ func (c *Cell) UpdateNeighbors() {
 func (c *Cell) Update(n *Cell) (err error) {
 	// send self status to a neighbor
 	maxSleep := MaxWidth * MaxHeight / 6
+	if maxSleep < 50 {
+		maxSleep = 50
+	}
 	jitter := rand.Intn(maxSleep)
 	sleep := time.Duration(jitter)
 	time.Sleep(sleep * time.Millisecond)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -40,7 +39,6 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 		log.Println("Error setting deadline:", err)
 	}
 
-	fmt.Println("Sending", daters, "to", cell.Name())
 	_, err = conn.Write([]byte(daters))
 	if err != nil {
 		log.Printf("Error sending %q to %s: %s", daters, cell.Name(), err)

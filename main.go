@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -18,7 +17,6 @@ func main() {
 	if os.Getenv("NOMAD_HOST_PORT_http") == "" && os.Getenv("NOMAD_ALLOC_INDEX") == "0" {
 		select {} // block forever instead of killing so nomad doesn't try to replace.
 	}
-	SetVars()
 
 	// logger := hclog.New(nil)
 	arg := "seed"
@@ -27,10 +25,10 @@ func main() {
 	}
 
 	fmt.Println(os.Args)
-
+	SetVars()
 	CacheAllCells()
 
-	seed := NewCell("1-1")
+	seed := NewCell("0-0")
 	switch arg {
 
 	case "test":
@@ -66,15 +64,8 @@ func main() {
 }
 
 func GetName() (name string) {
-	idx, err := strconv.Atoi(os.Getenv("NOMAD_ALLOC_INDEX"))
-	if err != nil {
-		fmt.Println("ERR getting alloc idx:", err)
-		return name
-	}
-	width, err := strconv.Atoi(os.Getenv("MAX_W"))
-	if err != nil {
-		fmt.Println("ERR getting MAX_W")
-	}
+	idx := AllocIdx
+	width := MaxWidth
 
 	var x, y int
 	if idx == 0 {
@@ -102,8 +93,8 @@ func GetSelf() *Cell {
 func Ticker() {
 	ui := NewUI(logger, 0)
 	inc := MaxWidth * MaxHeight / 5
-	if inc < 200 {
-		inc = 200
+	if inc < 300 {
+		inc = 300
 	}
 	TickTime = inc
 	sleep := time.Duration(inc)
