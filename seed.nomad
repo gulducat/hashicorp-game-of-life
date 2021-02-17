@@ -7,10 +7,9 @@ locals {
   h = 4
 
   http = 8081
-
-  # consul_addr = "http://192.168.1.254:8500" # TODO: variable?
-  consul_addr = "http://localhost:8500" # TODO: variable?
 }
+
+variable "consul_http_addr" {}
 
 job "gol" {
   datacenters = ["dc1"]
@@ -57,7 +56,7 @@ job "gol" {
         # PORT             = local.http # for waypoint
         MAX_W            = local.w
         MAX_H            = local.h
-        CONSUL_HTTP_ADDR = local.consul_addr
+        CONSUL_HTTP_ADDR = var.consul_http_addr
       }
       resources {
         cpu    = 1200
@@ -88,7 +87,7 @@ job "gol" {
       env {
         MAX_W            = local.w
         MAX_H            = local.h
-        CONSUL_HTTP_ADDR = local.consul_addr
+        CONSUL_HTTP_ADDR = var.consul_http_addr
       }
       resources {
         # each job doesn't really need this much cpu, but things go sideways below this value

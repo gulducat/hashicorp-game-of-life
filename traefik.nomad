@@ -1,9 +1,8 @@
 locals {
   http = 80
-
-  # consul_addr = "http://192.168.1.254:8500" # TODO: variable?
-  consul_addr = "http://localhost:8500" # TODO: variable?
 }
+
+variable "consul_http_addr" {}
 
 job "traefik" {
   datacenters = ["dc1"]
@@ -26,7 +25,7 @@ job "traefik" {
       }
 
       env {
-        CONSUL_HTTP_ADDR = local.consul_addr
+        CONSUL_HTTP_ADDR = var.consul_http_addr
       }
 
       resources {
