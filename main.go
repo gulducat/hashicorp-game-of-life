@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -18,13 +17,11 @@ func main() {
 		select {} // block forever instead of killing so nomad doesn't try to replace.
 	}
 
-	// logger := hclog.New(nil)
 	arg := "seed"
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
 	}
 
-	fmt.Println(os.Args)
 	SetVars()
 	CacheAllCells()
 
@@ -37,28 +34,17 @@ func main() {
 	case "run":
 		Run()
 
-	case "api":
-		ApiListen() // "api" is gone, long live "0-0"
-
 	case "pattern":
 		p := os.Args[2]
 		cdns := NewConsulDNS()
 		addr, err := cdns.GetServiceAddr("0-0-http")
 		if err != nil {
-			log.Fatal("OH NO:", err)
+			logger.Error("getting address", "err", err)
+			return
 		}
-		a := NewAPI("http://"+addr, logger)
+		a := NewAPI("http://" + addr)
 		_, body := a.Get(fmt.Sprintf("/p/%s", p))
-		fmt.Println(string(body))
-
-	case "dnstest":
-		// fmt.Println(Consul.Service("0-0"))
-		cdns := NewConsulDNS()
-		addr, err := cdns.GetServiceAddr("0-0")
-		if err != nil {
-			log.Println(err)
-		}
-		fmt.Println(addr)
+		logger.Info(string(body))
 
 	}
 }
@@ -82,16 +68,12 @@ func GetName() (name string) {
 }
 
 func GetSelf() *Cell {
-	name := GetName()
-	if name == "" {
-		log.Fatal("aint a nomad job")
-	}
-	self := NewCell(name)
+	self := NewCell(GetName())
 	return &self
 }
 
 func Ticker() {
-	ui := NewUI(logger, 0)
+	ui := NewUI()
 	inc := MaxWidth * MaxHeight / 5
 	if inc < 300 {
 		inc = 300
@@ -106,7 +88,7 @@ func Ticker() {
 		} else {
 			SendToAll("tick tock")
 		}
-		log.Println("Ticker sleep ms:", TickTime)
+		logger.Info("Ticker sleep", "ms", TickTime)
 		time.Sleep(sleep * time.Millisecond)
 	}
 }
@@ -115,7 +97,7 @@ func Run() {
 	seed := NewCell("0-0")
 	self := GetSelf()
 	isSeed := seed.Name() == self.Name()
-	fmt.Println("self:", self.Name())
+	logger.Info("self: " + self.Name())
 
 	if isSeed {
 		go self.Listen()
@@ -149,5 +131,7 @@ func SendToAll(msg string) {
 	}
 	wg.Wait()
 	end := time.Now()
-	log.Println("SendToAll '", msg, "' duration:", end.Sub(start))
+	logger.Info("SendToAll",
+		"msg", msg,
+		"duration", end.Sub(start))
 }

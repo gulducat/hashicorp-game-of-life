@@ -4,25 +4,20 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"time"
-
-	"github.com/hashicorp/go-hclog"
 )
 
 type API struct {
 	BaseUrl string
 	client  *http.Client
-	logger  hclog.Logger
 }
 
-func NewAPI(baseUrl string, logger hclog.Logger) *API {
+func NewAPI(baseUrl string) *API {
 	return &API{
 		BaseUrl: baseUrl,
 		client:  http.DefaultClient,
-		logger:  logger,
 	}
 }
 
@@ -59,22 +54,28 @@ func (a *API) Request(method string, path string, data []byte) (int, []byte, err
 	url := fmt.Sprintf("%s%s", a.BaseUrl, path)
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(data))
 	if err != nil {
-		log.Println("NewRequest Error ", method, "ing", path, ":", err)
+		logger.Error("http.NewRequest",
+			"method", method,
+			"path", path,
+			"err", err)
 		return 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		log.Println("client.Do Error", method, "ing", path, ":", err)
+		logger.Error("client.Do",
+			"method", method,
+			"path", path,
+			"err", err)
 		return 0, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	a.logger.Info("submitted http request",
-		"status_code", resp.StatusCode,
+	logger.Info("submitted http request",
 		"method", method,
-		"path", path)
+		"url", url,
+		"status_code", resp.StatusCode)
 	return resp.StatusCode, body, nil
 }

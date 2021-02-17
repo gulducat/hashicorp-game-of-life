@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"log"
 	"net"
 	"time"
 )
@@ -27,7 +26,9 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
-		log.Printf("Error getting UDP port for %s: %s", cell.Name(), err)
+		logger.Error("getting UDP port",
+			"name", cell.Name(),
+			"err", err)
 		return
 	}
 	defer conn.Close()
@@ -36,22 +37,30 @@ func SendUDPOnce(daters string, cell *Cell) (err error) {
 	now := time.Now()
 	err = conn.SetDeadline(now.Add(150 * time.Millisecond)) // TODO: longer when run on a cluster?
 	if err != nil {
-		log.Println("Error setting deadline:", err)
+		logger.Error("setting deadline", "err", err)
 	}
 
 	_, err = conn.Write([]byte(daters))
 	if err != nil {
-		log.Printf("Error sending %q to %s: %s", daters, cell.Name(), err)
+		logger.Error("sending",
+			"daters", daters,
+			"name", cell.Name(),
+			"err", err)
 	}
 
 	_, _, err = bufio.NewReader(conn).ReadLine()
 	if err != nil {
-		log.Printf("Error reading response from %s: %s", cell.Name(), err)
+		logger.Error("reading response",
+			"name", cell.Name(),
+			"err", err)
 		return
 	}
 
 	end := time.Now()
-	log.Printf("SendUDP %q to %q duration: %s", daters, cell.Name(), end.Sub(start))
+	logger.Debug("SendUDP",
+		"daters", daters,
+		"target", cell.Name(),
+		"duration", end.Sub(start))
 
 	return
 }

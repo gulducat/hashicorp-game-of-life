@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -14,7 +13,10 @@ const datacenter = "dc1"
 var MaxWidth int
 var MaxHeight int
 
-var logger = hclog.New(nil)
+var logger = hclog.New(&hclog.LoggerOptions{
+	Name:  "",
+	Level: hclog.LevelFromString("DEBUG"),
+})
 
 var ConsulAddr = os.Getenv("CONSUL_HTTP_ADDR")
 var UdpPort = os.Getenv("NOMAD_HOST_PORT_udp")
@@ -34,12 +36,12 @@ func SetVars() {
 	var err error
 	MaxWidth, err = strconv.Atoi(os.Getenv("MAX_W"))
 	if err != nil {
-		// log.Println("ERR getting MAX_W:", err)
+		logger.Debug("using default MaxWidth: 9")
 		MaxWidth = 9
 	}
 	MaxHeight, err = strconv.Atoi(os.Getenv("MAX_H"))
 	if err != nil {
-		// log.Println("ERR getting MAX_H:", err)
+		logger.Debug("using default MaxHeight: 7")
 		MaxHeight = 7
 	}
 
@@ -55,7 +57,7 @@ func SetVars() {
 	if err == nil {
 		AllocIdx = idx
 	} else {
-		log.Println("using default idx: 0")
+		logger.Debug("using default idx: 0")
 	}
 
 }

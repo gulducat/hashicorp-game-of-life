@@ -9,15 +9,13 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/hashicorp/go-hclog"
 )
 
 func ApiListen() {
-	logger.Info("running api")
-	ui := NewUI(logger, time.Second/2)
-	logger.Info("listening on " + ":" + httpPort)
+	ui := NewUI()
+	logger.Info("api listening", "port", httpPort)
 	if err := ui.ListenAndServe(":" + httpPort); err != nil {
-		logger.Error(err.Error())
+		logger.Error("ListenAndServe", "err", err)
 		os.Exit(1)
 	}
 }
@@ -25,14 +23,10 @@ func ApiListen() {
 type UI struct {
 	cacheRW    sync.RWMutex
 	cachedGrid []byte
-
-	logger hclog.Logger
 }
 
-func NewUI(logger hclog.Logger, refreshRate time.Duration) *UI {
-	return &UI{
-		logger: logger.Named("ui"),
-	}
+func NewUI() *UI {
+	return &UI{}
 }
 
 func (ui *UI) ListenAndServe(address string) error {
@@ -55,7 +49,7 @@ func (ui *UI) HandlePattern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	NextPattern = p
-	w.Write([]byte("set next pattern:" + p + "\n"))
+	w.Write([]byte("set next pattern: " + p + "\n"))
 }
 
 func (ui *UI) UpdateGrid() {

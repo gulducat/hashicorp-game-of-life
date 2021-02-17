@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -137,7 +136,7 @@ func ParsePattern(name string, offsetX, offsetY int) (map[string]bool, error) {
 	p, ok := Patterns[name]
 	if !ok {
 		msg := fmt.Sprintf("Error invalid pattern: %q", name)
-		log.Println(msg)
+		logger.Error(msg)
 		err := errors.New(msg)
 		return nil, err
 	}
@@ -153,7 +152,6 @@ func ParsePattern(name string, offsetX, offsetY int) (map[string]bool, error) {
 		}
 		y++
 	}
-	log.Println("mapped pattern:", m)
 	return m, nil
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"strconv"
@@ -66,7 +65,7 @@ func (c *Cell) Address() (string, error) {
 	cdns := NewConsulDNS()
 	addr, err := cdns.GetServiceAddr(c.Service())
 	if err != nil {
-		log.Println(err)
+		logger.Error("getting address", "err", err)
 		c.addr = ""
 		return "", err
 	}
@@ -137,14 +136,14 @@ func (c *Cell) Tick(seed *Cell, p string) {
 
 	tickEnd := time.Now()
 	tickDelta := tickEnd.Sub(tickStart)
-	log.Println("tickDelta:", tickDelta)
+	logger.Debug("tickDelta", "duration", tickDelta)
 }
 
 func (c *Cell) Listen() (err error) {
 	addr := "0.0.0.0:" + UdpPort
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
-		log.Println("Error starting server:", err)
+		logger.Error("starting udp server", "err", err)
 		return
 	}
 	defer conn.Close()
@@ -164,9 +163,8 @@ func (c *Cell) Listen() (err error) {
 				continue
 			}
 			msg := string(buf[:n])
-			// log.Printf("serv recv %s", msg)
 
-			// start := time.Now()
+			start := time.Now()
 			Mut.Lock()
 
 			parts := strings.Split(msg, " ")
@@ -194,14 +192,18 @@ func (c *Cell) Listen() (err error) {
 			out := append(buf[:n], '\n') // add newline so Readline() in client SendUDP() knows end of response
 			i, err := conn.WriteTo(out, dst)
 			if err != nil {
-				log.Println("i:", i, ":: err: ", err)
+				logger.Error("responding to client",
+					"i", i,
+					"err", err)
 			}
 
-			// end := time.Now()
-			// log.Printf("listen duration: %s (%q)", end.Sub(start), buf[:n])
+			end := time.Now()
+			logger.Debug("Listen",
+				"msg", string(buf[:n]),
+				"duration", end.Sub(start))
 		}
 	}()
-	fmt.Println("server started on", addr)
+	logger.Info("udp listener started", "addr", addr)
 
 	select { // TODO: learn more about select
 	case err = <-errChan:
@@ -227,7 +229,9 @@ func (c *Cell) Update(n *Cell) (err error) {
 	d := fmt.Sprintf("%s %t", c.Name(), c.alive)
 	err = SendUDP(d, n)
 	if err != nil {
-		log.Printf("Error updating neighbor %s: %s\n", n.Name(), err)
+		logger.Error("updating neighbor",
+			"name", n.Name(),
+			"err", err)
 	}
 	return
 }
@@ -243,7 +247,7 @@ func (c *Cell) GetNextLiveness() bool {
 			totalAlive++
 		}
 	}
-	fmt.Println("totalAlive", totalAlive)
+	logger.Info("GetNextLiveness", "totalAlive", totalAlive)
 
 	// Any live cell with two or three live neighbors lives on to the next generation.
 	// Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
