@@ -1,8 +1,5 @@
 package main
 
-// TODO: need a better global ticker, Sleepy() is too fuzzy and depends on system clock... seed could send udp to all cells? or a separate periodic batch job?
-// TODO: concurrent error handling: https://hashicorp.slack.com/archives/C01A1M2QQ1Z/p1610135235145900
-
 import (
 	"fmt"
 	"os"
@@ -119,8 +116,7 @@ func CacheAllCells() {
 }
 
 func SendToAll(msg string) {
-	// TODO: WaitGroup is only needed for running from laptop. (?)
-	var wg sync.WaitGroup // TODO: does this concurrency really help?  yes, yes it most certainly does.
+	var wg sync.WaitGroup
 	start := time.Now()
 	for _, c := range AllCells {
 		wg.Add(1)

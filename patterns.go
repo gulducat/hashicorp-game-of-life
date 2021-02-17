@@ -12,11 +12,6 @@ import (
 // https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life#Examples_of_patterns
 // http://www.radicaleye.com/lifepage/glossary.html
 
-/* cool things
-10x9 lwss turns into a glider when it hits the edge
-
-*/
-
 var Patterns = map[string]string{
 	"random": "",
 
@@ -44,14 +39,6 @@ var Patterns = map[string]string{
 ..*
 ***
 `,
-	// attempt at light weight space ship
-	// best at 9x9
-	"ifail1": `
-.*..*
-....*
-*...*
-.****
-`,
 	"lwss": `
 .****
 *...*
@@ -64,7 +51,6 @@ var Patterns = map[string]string{
 ......*
 .*...*.
 ...*...`,
-	// need a bigger grid for these...
 	"hwss": `
 ..******
 .*.....*
