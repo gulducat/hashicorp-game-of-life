@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
-	"time"
 )
 
 func main() {
@@ -19,34 +17,36 @@ func main() {
 		arg = os.Args[1]
 	}
 
-	SetVars()
-	CacheAllCells()
+	SetGlobals()
 
 	seed := NewCell("0-0")
 	switch arg {
-
 	case "test":
 		SendUDP("hello there", &seed)
-
 	case "run":
-		Run()
-
+		Run(&seed)
 	case "pattern":
-		p := os.Args[2]
-		cdns := NewConsulDNS()
-		addr, err := cdns.GetServiceAddr("0-0-http")
-		if err != nil {
-			logger.Error("getting address", "err", err)
-			return
-		}
-		a := NewAPI("http://" + addr)
-		_, body := a.Get(fmt.Sprintf("/p/%s", p))
-		logger.Info(string(body))
+		SetPattern(os.Args[2])
+	}
+}
 
+func Run(seed *Cell) {
+	self := NewCell(GetName())
+	isSeed := seed.Name() == self.Name()
+	logger.Info("self: " + self.Name())
+
+	if isSeed {
+		CacheAllCells()
+		go self.Listen()
+		go Ticker()
+		ApiListen()
+	} else {
+		self.Listen()
 	}
 }
 
 func GetName() (name string) {
+	// see vars.go for these globals
 	idx := AllocIdx
 	width := MaxWidth
 
@@ -64,48 +64,6 @@ func GetName() (name string) {
 	return name
 }
 
-func GetSelf() *Cell {
-	self := NewCell(GetName())
-	return &self
-}
-
-func Ticker() {
-	ui := NewUI()
-	inc := MaxWidth * MaxHeight / 5
-	if inc < 300 {
-		inc = 300
-	}
-	TickTime = inc
-	sleep := time.Duration(inc)
-	for {
-		ui.UpdateGrid()
-		if NextPattern != "" {
-			SendToAll("pattern " + NextPattern)
-			NextPattern = ""
-		} else {
-			SendToAll("tick tock")
-		}
-		logger.Info("Ticker sleep", "ms", TickTime)
-		time.Sleep(sleep * time.Millisecond)
-	}
-}
-
-func Run() {
-	seed := NewCell("0-0")
-	self := GetSelf()
-	isSeed := seed.Name() == self.Name()
-	logger.Info("self: " + self.Name())
-
-	if isSeed {
-		go self.Listen()
-		go Ticker()
-		ApiListen()
-	} else {
-		self.Listen()
-	}
-
-}
-
 func CacheAllCells() {
 	for x := 1; x <= MaxWidth; x++ {
 		for y := 1; y <= MaxHeight; y++ {
@@ -115,19 +73,14 @@ func CacheAllCells() {
 	}
 }
 
-func SendToAll(msg string) {
-	var wg sync.WaitGroup
-	start := time.Now()
-	for _, c := range AllCells {
-		wg.Add(1)
-		go func(c *Cell) {
-			SendUDP(msg, c)
-			wg.Done()
-		}(c)
+func SetPattern(p string) {
+	cdns := NewConsulDNS()
+	addr, err := cdns.GetServiceAddr("0-0-http")
+	if err != nil {
+		logger.Error("getting address", "err", err)
+		return
 	}
-	wg.Wait()
-	end := time.Now()
-	logger.Info("SendToAll",
-		"msg", msg,
-		"duration", end.Sub(start))
+	h := NewHTTP("http://" + addr)
+	_, body := h.Get(fmt.Sprintf("/p/%s", p))
+	logger.Info(string(body))
 }

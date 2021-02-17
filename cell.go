@@ -110,35 +110,6 @@ func (c *Cell) Neighbors() map[string]*Cell {
 	return valid
 }
 
-func (c *Cell) Tick(seed *Cell, p string) {
-	tickStart := time.Now()
-
-	// avoid race: wait for all cells to get the tick.
-	// it takes up to ~20ms for seed to finish 49 cells on laptop
-	// NOTE: SendUDP's Deadline must be longer than this*8.
-	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
-	if sleep < 25 {
-		sleep = 25
-	}
-	time.Sleep(sleep * time.Millisecond)
-
-	if p == "random" {
-		rand.Seed(time.Now().UnixNano())
-		c.alive = rand.Intn(3) > 1 // ~1/3 of the time
-	} else {
-		if !ApplyPattern(c, p) {
-			c.alive = c.GetNextLiveness()
-		}
-	}
-
-	c.UpdateNeighbors()
-	go c.Update(seed)
-
-	tickEnd := time.Now()
-	tickDelta := tickEnd.Sub(tickStart)
-	logger.Debug("tickDelta", "duration", tickDelta)
-}
-
 func (c *Cell) Listen() (err error) {
 	addr := "0.0.0.0:" + UdpPort
 	conn, err := net.ListenPacket("udp", addr)
@@ -211,29 +182,33 @@ func (c *Cell) Listen() (err error) {
 	return
 }
 
-func (c *Cell) UpdateNeighbors() {
-	for _, n := range c.Neighbors() {
-		go c.Update(n)
-	}
-}
+func (c *Cell) Tick(seed *Cell, p string) {
+	tickStart := time.Now()
 
-func (c *Cell) Update(n *Cell) (err error) {
-	// send self status to a neighbor
-	maxSleep := MaxWidth * MaxHeight / 6
-	if maxSleep < 50 {
-		maxSleep = 50
+	// avoid race: wait for all cells to get the tick.
+	// it takes up to ~20ms for seed to finish 49 cells on laptop
+	// NOTE: SendUDP's Deadline must be longer than this*8.
+	sleep := time.Duration(MaxWidth * MaxHeight / 30) // TODO: hmmm.. magic.
+	if sleep < 25 {
+		sleep = 25
 	}
-	jitter := rand.Intn(maxSleep)
-	sleep := time.Duration(jitter)
 	time.Sleep(sleep * time.Millisecond)
-	d := fmt.Sprintf("%s %t", c.Name(), c.alive)
-	err = SendUDP(d, n)
-	if err != nil {
-		logger.Error("updating neighbor",
-			"name", n.Name(),
-			"err", err)
+
+	if p == "random" {
+		rand.Seed(time.Now().UnixNano())
+		c.alive = rand.Intn(3) > 1 // ~1/3 of the time
+	} else {
+		if !ApplyPattern(c, p) {
+			c.alive = c.GetNextLiveness()
+		}
 	}
-	return
+
+	c.UpdateNeighbors()
+	go c.Update(seed)
+
+	tickEnd := time.Now()
+	tickDelta := tickEnd.Sub(tickStart)
+	logger.Debug("tickDelta", "duration", tickDelta)
 }
 
 func (c *Cell) GetNextLiveness() bool {
@@ -260,4 +235,29 @@ func (c *Cell) GetNextLiveness() bool {
 		beAlive = totalAlive == 3 // exactly 3
 	}
 	return beAlive
+}
+
+func (c *Cell) UpdateNeighbors() {
+	for _, n := range c.Neighbors() {
+		go c.Update(n)
+	}
+}
+
+func (c *Cell) Update(n *Cell) (err error) {
+	// send self status to a neighbor
+	maxSleep := MaxWidth * MaxHeight / 6
+	if maxSleep < 50 {
+		maxSleep = 50
+	}
+	jitter := rand.Intn(maxSleep)
+	sleep := time.Duration(jitter)
+	time.Sleep(sleep * time.Millisecond)
+	d := fmt.Sprintf("%s %t", c.Name(), c.alive)
+	err = SendUDP(d, n)
+	if err != nil {
+		logger.Error("updating neighbor",
+			"name", n.Name(),
+			"err", err)
+	}
+	return
 }

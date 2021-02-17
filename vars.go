@@ -32,7 +32,7 @@ var Grid string
 var NextPattern string
 var TickTime int
 
-func SetVars() {
+func SetGlobals() {
 	var err error
 	MaxWidth, err = strconv.Atoi(os.Getenv("MAX_W"))
 	if err != nil {

@@ -52,32 +52,6 @@ func (ui *UI) HandlePattern(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("set next pattern: " + p + "\n"))
 }
 
-func (ui *UI) UpdateGrid() {
-	var val string
-	var name string
-	Mut.RLock()
-	defer Mut.RUnlock()
-	ui.cacheRW.Lock()
-	defer ui.cacheRW.Unlock()
-	Grid = ""
-	for y := 1; y <= MaxHeight; y++ {
-		for x := 1; x <= MaxWidth; x++ {
-			val = "🥶"
-			name = fmt.Sprintf("%d-%d", x, y)
-			alive, ok := Statuses[name]
-			if ok {
-				if alive {
-					val = "🟢"
-				} else {
-					val = "🌑"
-				}
-			}
-			Grid += val
-		}
-		Grid += "\n"
-	}
-}
-
 func (ui *UI) HandleRaw(w http.ResponseWriter, r *http.Request) {
 	ui.cacheRW.RLock()
 	defer ui.cacheRW.RUnlock()
@@ -116,4 +90,30 @@ func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
 </html>
 `, TickTime/2)
 	w.Write([]byte(msg))
+}
+
+func (ui *UI) UpdateGrid() {
+	var val string
+	var name string
+	Mut.RLock()
+	defer Mut.RUnlock()
+	ui.cacheRW.Lock()
+	defer ui.cacheRW.Unlock()
+	Grid = ""
+	for y := 1; y <= MaxHeight; y++ {
+		for x := 1; x <= MaxWidth; x++ {
+			val = "🥶"
+			name = fmt.Sprintf("%d-%d", x, y)
+			alive, ok := Statuses[name]
+			if ok {
+				if alive {
+					val = "🟢"
+				} else {
+					val = "🌑"
+				}
+			}
+			Grid += val
+		}
+		Grid += "\n"
+	}
 }

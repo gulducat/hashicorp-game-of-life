@@ -3,8 +3,26 @@ package main
 import (
 	"bufio"
 	"net"
+	"sync"
 	"time"
 )
+
+func SendToAll(msg string) {
+	var wg sync.WaitGroup
+	start := time.Now()
+	for _, c := range AllCells {
+		wg.Add(1)
+		go func(c *Cell) {
+			SendUDP(msg, c)
+			wg.Done()
+		}(c)
+	}
+	wg.Wait()
+	end := time.Now()
+	logger.Info("SendToAll",
+		"msg", msg,
+		"duration", end.Sub(start))
+}
 
 func SendUDP(daters string, cell *Cell) (err error) {
 	for i := 0; i < 5; i++ {
