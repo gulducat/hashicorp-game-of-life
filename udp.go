@@ -27,7 +27,9 @@ func SendToAll(msg string) {
 func SendUDP(daters string, cell *Cell) (err error) {
 	for i := 0; i < 5; i++ {
 		err = SendUDPOnce(daters, cell)
-		if err == nil {
+		if err != nil {
+			cell.addr = "" // trigger cache refresh, probably should be handled elsewhere, but eh.
+		} else {
 			break
 		}
 	}

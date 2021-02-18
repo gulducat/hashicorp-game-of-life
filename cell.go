@@ -16,18 +16,19 @@ type Cell struct {
 	alive bool
 	addr  string
 	n     map[string]*Cell
-
-	mut sync.RWMutex
+	cdns  *ConsulDNS
+	mut   sync.RWMutex
 }
 
-func NewCell(name string) Cell {
+func NewCell(name string) *Cell {
 	bits := strings.Split(name, "-")
 	x, _ := strconv.Atoi(bits[0])
 	y, _ := strconv.Atoi(bits[1])
-	return Cell{
+	return &Cell{
 		x:     x,
 		y:     y,
 		alive: true,
+		cdns:  NewConsulDNS(),
 	}
 }
 
@@ -56,17 +57,14 @@ func (c *Cell) IsSeed() bool {
 }
 
 func (c *Cell) Address() (string, error) {
-	// TODO: retry if stale addr; somewhere... Update()?
 	if c.addr != "" {
 		return c.addr, nil
 	}
 
 	// turns out dns is wayyyy faster than http
-	cdns := NewConsulDNS()
-	addr, err := cdns.GetServiceAddr(c.Service())
+	addr, err := c.cdns.GetServiceAddr(c.Service())
 	if err != nil {
 		logger.Error("getting address", "err", err)
-		c.addr = ""
 		return "", err
 	}
 
@@ -82,19 +80,19 @@ func (c *Cell) Neighbors() map[string]*Cell {
 		// comments assuming cell "2-2"
 
 		// top row
-		&Cell{x: c.x - 1, y: c.y - 1}, // 1-1
-		&Cell{x: c.x, y: c.y - 1},     // 2-1
-		&Cell{x: c.x + 1, y: c.y - 1}, // 3-1
+		NewCell(fmt.Sprintf("%d-%d", c.x-1, c.y-1)), // 1-1
+		NewCell(fmt.Sprintf("%d-%d", c.x, c.y-1)),   // 2-1
+		NewCell(fmt.Sprintf("%d-%d", c.x+1, c.y-1)), // 3-1
 
 		// middle row
-		&Cell{x: c.x - 1, y: c.y}, // 1-2
+		NewCell(fmt.Sprintf("%d-%d", c.x-1, c.y)), // 1-2
 		// 2-2 is self.
-		&Cell{x: c.x + 1, y: c.y}, // 3-2
+		NewCell(fmt.Sprintf("%d-%d", c.x+1, c.y)), // 3-2
 
 		// bottom row
-		&Cell{x: c.x - 1, y: c.y + 1}, // 1-3
-		&Cell{x: c.x, y: c.y + 1},     // 2-3
-		&Cell{x: c.x + 1, y: c.y + 1}, // 3-3
+		NewCell(fmt.Sprintf("%d-%d", c.x-1, c.y+1)), // 1-3
+		NewCell(fmt.Sprintf("%d-%d", c.x, c.y+1)),   // 2-3
+		NewCell(fmt.Sprintf("%d-%d", c.x+1, c.y+1)), // 3-3
 
 	}
 	var valid = make(map[string]*Cell)
@@ -145,10 +143,10 @@ func (c *Cell) Listen() (err error) {
 				break
 
 			case "tick":
-				c.Tick(&seed, "")
+				c.Tick(seed, "")
 
 			case "pattern":
-				c.Tick(&seed, parts[1])
+				c.Tick(seed, parts[1])
 
 			default: // updates from neighbors
 				nName := parts[0]

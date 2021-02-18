@@ -22,9 +22,9 @@ func main() {
 	seed := NewCell("0-0")
 	switch arg {
 	case "test":
-		SendUDP("hello there", &seed)
+		SendUDP("hello there", seed)
 	case "run":
-		Run(&seed)
+		Run(seed)
 	case "pattern":
 		SetPattern(os.Args[2])
 	}
@@ -67,8 +67,8 @@ func GetName() (name string) {
 func CacheAllCells() {
 	for x := 1; x <= MaxWidth; x++ {
 		for y := 1; y <= MaxHeight; y++ {
-			c := Cell{x: x, y: y}
-			AllCells = append(AllCells, &c)
+			c := NewCell(fmt.Sprintf("%d-%d", x, y))
+			AllCells = append(AllCells, c)
 		}
 	}
 }
