@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
+	"strings"
+	"time"
 )
 
-const consulDnsAddr = "127.0.0.1:8600"
-const datacenter = "dc1"
-
 func NewConsulDNS() *ConsulDNS {
+	consulDnsAddr := strings.Replace(ConsulAddr, "8500", "8600", 1)
+	consulDnsAddr = strings.Replace(consulDnsAddr, "http://", "", 1)
+	consulDnsAddr = strings.Replace(consulDnsAddr, "https://", "", 1)
 	return &ConsulDNS{
 		r: &net.Resolver{
 			PreferGo: true,
@@ -28,6 +31,20 @@ type ConsulDNS struct {
 }
 
 func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) {
+	for x := 0; x < 5; x++ {
+		jitter := time.Duration(rand.Intn(100))
+		time.Sleep(jitter * time.Millisecond)
+		addr, err = c.GetServiceAddrOnce(serviceName)
+		if err == nil {
+			return
+		}
+		sleep := time.Duration(x * 100)
+		time.Sleep(sleep * time.Millisecond)
+	}
+	return
+}
+
+func (c *ConsulDNS) GetServiceAddrOnce(serviceName string) (addr string, err error) {
 	name := serviceName + ".service." + datacenter + ".consul"
 
 	_, addrs, err := c.r.LookupSRV(c.ctx, "", "", name)

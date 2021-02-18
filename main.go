@@ -1,166 +1,86 @@
 package main
 
-// TODO: api (or whatever) should represent all the cells as a multi-dimensional array
-
 import (
 	"fmt"
-	"log"
-	"math/rand"
 	"os"
-	"time"
-
-	"github.com/hashicorp/go-hclog"
 )
 
-// 15*16 = 240
-const MaxWidth = 22
-const MaxHeight = 16
-
-// const MaxWidth = 7
-// const MaxHeight = 8
-
-const TmpDir = "/tmp/hgol"
-
-// lazy "global" api clients
-var logger = hclog.New(nil)
-var Consul = NewConsul(logger)
-var Nomad = NewNomad(logger)
-
-// more lazy globals
-// var ThisDir, _ = filepath.Abs(filepath.Dir(os.Args[0]))
-
 func main() {
-	logger := hclog.New(nil)
+	// HACK - only let one seed job run, the one we care about for waypoint (?)
+	// only our main seed job will have an "http" port.
+	if os.Getenv("NOMAD_HOST_PORT_http") == "" && os.Getenv("NOMAD_ALLOC_INDEX") == "0" {
+		select {} // block forever instead of killing so nomad doesn't try to replace.
+	}
+
 	arg := "seed"
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
 	}
-	switch arg {
 
-	case "run":
-		Run()
+	SetGlobals()
 
-	case "api":
-		logger.Info("running api")
-		ui, err := NewUI(logger, time.Second)
-		if err != nil {
-			logger.Error(err.Error())
-			os.Exit(1)
-		}
-		logger.Info("listening on " + ":80")
-		if err := ui.ListenAndServe(":80"); err != nil {
-			logger.Error(err.Error())
-		}
-
-	case "seed":
-		seed := NewCell("0-0")
-		seed.Create()
-
-	case "check":
-		self := GetSelf()
-		if self.GetStatus() {
-			os.Exit(0)
-		} else {
-			os.Exit(1)
-		}
-
-	case "more":
-		Reset()
-
-	case "dnstest": // TODO: remove me
-		c := NewConsulDNS()
-		svc := "0-0"
-		addr, err := c.GetServiceAddr(svc)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(svc, addr)
-	}
-}
-
-func GetSelf() *Cell {
-	name := os.Getenv("NOMAD_JOB_NAME")
-	if name == "" {
-		panic("aint a nomad job")
-	}
-	self := NewCell(name)
-	return &self
-}
-
-func Run() {
 	seed := NewCell("0-0")
-
-	self := GetSelf() // TODO: rename "self" ?
-	log.Printf("self: %v\n", self)
-
-	rando := rand.Intn(2)
-	startingStatus := false
-	if rando == 1 {
-		startingStatus = true
-	}
-	self.SetStatus(startingStatus)
-	// self.SetStatus(true)
-
-	neighbors := self.Neighbors(MaxWidth, MaxHeight)
-	EnsureJobs(neighbors)
-
-	for {
-		// sleep first to give the job(s) a chance to be created.
-		time.Sleep(1 * time.Second)
-
-		if !seed.Exists() {
-			self.Destroy()
-			return
-		}
-
-		selfStatus := self.GetStatus()
-
-		totalAlive := 0
-		for _, n := range neighbors {
-			if n.Alive() {
-				totalAlive += 1
-			}
-		}
-
-		//Any live cell with two or three live neighbors lives on to the next generation.
-		if selfStatus == true && (totalAlive == 2 || totalAlive == 3) {
-			continue
-		}
-
-		//Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
-		if selfStatus == false && totalAlive == 3 {
-			self.SetStatus(true)
-			continue
-		}
-
-		//Any live cell with fewer than two live neighbors dies, as if by underpopulation.
-		if selfStatus == true && totalAlive < 2 {
-			self.SetStatus(false)
-			continue
-		}
-
-		//Any live cell with more than three live neighbors dies, as if by overpopulation.
-		if selfStatus == true && totalAlive > 3 {
-			self.SetStatus(false)
-			continue
-		}
-
+	switch arg {
+	case "test":
+		SendUDP("hello there", seed)
+	case "run":
+		Run(seed)
+	case "pattern":
+		SetPattern(os.Args[2])
 	}
 }
 
-func EnsureJobs(neighbors []*Cell) {
-	for _, n := range neighbors {
-		fmt.Println("Creating job:", n.Name())
-		n.Create()
+func Run(seed *Cell) {
+	self := NewCell(GetName())
+	isSeed := seed.Name() == self.Name()
+	logger.Info("self: " + self.Name())
+
+	if isSeed {
+		CacheAllCells()
+		go self.Listen()
+		go Ticker()
+		ApiListen()
+	} else {
+		self.Listen()
 	}
 }
 
-func Reset() {
-	var c Cell
-	for y := 1; y <= MaxHeight; y++ {
-		for x := 1; x <= MaxWidth; x++ {
-			c = Cell{x: x, y: y}
-			c.SetStatus(true)
+func GetName() (name string) {
+	// see vars.go for these globals
+	idx := AllocIdx
+	width := MaxWidth
+
+	var x, y int
+	if idx == 0 {
+		return "0-0"
+	}
+	x = idx % width
+	if x == 0 {
+		x = width
+	}
+	y = (idx-1)/width + 1
+
+	name = fmt.Sprintf("%d-%d", x, y)
+	return name
+}
+
+func CacheAllCells() {
+	for x := 1; x <= MaxWidth; x++ {
+		for y := 1; y <= MaxHeight; y++ {
+			c := NewCell(fmt.Sprintf("%d-%d", x, y))
+			AllCells = append(AllCells, c)
 		}
 	}
+}
+
+func SetPattern(p string) {
+	cdns := NewConsulDNS()
+	addr, err := cdns.GetServiceAddr("0-0-http")
+	if err != nil {
+		logger.Error("getting address", "err", err)
+		return
+	}
+	h := NewHTTP("http://" + addr)
+	_, body := h.Get(fmt.Sprintf("/p/%s", p))
+	logger.Info(string(body))
 }
