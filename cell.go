@@ -119,6 +119,9 @@ func (c *Cell) Listen() (err error) {
 
 	seed := NewCell("0-0")
 
+	cellReports := 0
+	tickStart := time.Now()
+
 	errChan := make(chan error, 1)
 	buf := make([]byte, 512)
 	go func() {
@@ -152,6 +155,15 @@ func (c *Cell) Listen() (err error) {
 				nName := parts[0]
 				nAlive := parts[1] == "true"
 				Statuses[nName] = nAlive
+				if c.IsSeed() {
+					cellReports += 1
+					if cellReports == MaxWidth*MaxHeight {
+						tickEnd := time.Now()
+						logger.Info("all cells reported to seed", "duration", tickEnd.Sub(tickStart))
+						tickStart = tickEnd
+						cellReports = 0
+					}
+				}
 
 			}
 
