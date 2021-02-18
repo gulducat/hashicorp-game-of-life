@@ -22,6 +22,6 @@ module "nomad-oss" {
   name_prefix           = "dbennett"
   key_name              = "dbennett-test"
   nomad_servers         = 1
-  nomad_clients         = 8
+  nomad_clients         = 7
   instance_type         = "c5.2xlarge" # 8cpu 16m
 }

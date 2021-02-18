@@ -1,7 +1,7 @@
 locals {
-  # good for 8 clients (c5.2xlarge), ~270 per node
-  # w = 56
-  # h = 38
+  # good for 7 clients (c5.2xlarge), ~300 per node
+  # w = 58
+  # h = 36
   # good for laptop
   w = 4
   h = 4
@@ -91,7 +91,7 @@ job "gol" {
       }
       resources {
         # each job doesn't really need this much cpu, but things go sideways below this value
-        cpu    = 100
+        cpu    = 90
         memory = 50
       }
       logs {
