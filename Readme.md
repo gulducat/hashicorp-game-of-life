@@ -1,21 +1,15 @@
 # HashiCorp's Game of Life
 
+A distributed implementation of
 [Conway’s Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life)
-where each cell is a Nomad job and “alive/dead” is the
-health check status of each job’s registered Consul service.
+using HashiCorp tools.
 
-Following Conway’s rules, each cell checks its neighbors’ health
-via Consul to determine what its own health should be.
+* Each “cell” is a separate process, scheduled by Nomad.
 
-## How Do
+* They discover their neighbors’ addresses via Consul.
 
-Pre-requisites: Go, Nomad, and Consul installed on your machine.
+* Each apply rules to themselves, then report to neighbors and a “seed” job.
 
-```shell
-make svc    # run nomad and consul
-make seed   # build and start "seed" job ("0-0")
-make api    # start api job
-make ui     # display terminal UI
-make clean  # stop all nomad jobs
-make kill   # kill nomad, consul, and hashicorp-game-of-life
-```
+* All cells’ statuses are stored by the seed for us to view.
+
+[HashiTalks presentation slides](https://docs.google.com/presentation/d/1VC7D6EYA2Z6ivHBX7RKJhc3ZyhEFFoCkAIA9ADt6U5A)
