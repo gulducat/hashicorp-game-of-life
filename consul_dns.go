@@ -32,12 +32,13 @@ type ConsulDNS struct {
 
 func (c *ConsulDNS) GetServiceAddr(serviceName string) (addr string, err error) {
 	for x := 0; x < 5; x++ {
+		jitter := time.Duration(rand.Intn(100))
+		time.Sleep(jitter * time.Millisecond)
 		addr, err = c.GetServiceAddrOnce(serviceName)
 		if err == nil {
 			return
 		}
-		minSleep := x * 100
-		sleep := time.Duration(minSleep + rand.Intn(100))
+		sleep := time.Duration(x * 100)
 		time.Sleep(sleep * time.Millisecond)
 	}
 	return
