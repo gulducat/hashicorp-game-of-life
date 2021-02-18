@@ -22,8 +22,10 @@ build:
 	# docker build -t gol:local .
 
 run: servers.map
-	nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" traefik.nomad >/dev/null
-	nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" gol.nomad >/dev/null
+	@echo nomad run traefik.nomad
+	@echo nomad run gol.nomad
+	@nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" traefik.nomad >/dev/null
+	@nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" gol.nomad >/dev/null
 
 ui:
 	while true; do \
@@ -49,10 +51,10 @@ clean:
 .PHONY: infra-up infra-down ping upload
 
 infra-up:
-	cd terraform && terraform init && terraform apply
+	cd terraform && terraform init && terraform apply -auto-approve
 
 infra-down: clean
-	cd terraform && terraform destroy
+	cd terraform && terraform destroy -auto-approve
 
 servers.map:
 	aws --region us-east-1 \
@@ -108,3 +110,20 @@ kill:
 	while true; do sleep 0.5; consul members    2>/dev/null || break ; done
 	while true; do sleep 0.5; nomad node status 2>/dev/null || break ; done
 	rm -rf ./servers.* ./logs/ /tmp/hgol/
+
+
+## DEMO ##
+
+.PHONY: demo seed-alloc seed.log
+
+# demo: run seed.log
+
+seed-alloc:
+	@for x in {1..5}; do \
+	  nomad status gol | awk '/seed.*runn/ {print $$1}' 2>/dev/null | grep . && break ;\
+	  sleep 1 ;\
+	done
+
+seed.log:
+	@rm -f seed.log
+	nomad logs -tail -f -stderr $(shell $(MAKE) seed-alloc) | cut -d' ' -f3- | tee seed.log
