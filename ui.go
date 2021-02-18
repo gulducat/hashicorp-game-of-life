@@ -49,7 +49,9 @@ func (ui *UI) HandlePattern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	NextPattern = p
-	w.Write([]byte("set next pattern: " + p + "\n"))
+	head := "<html><head><meta http-equiv='refresh' content='0; url=/' /></head><body>\n"
+	foot := "\n<br></body></html>\n"
+	w.Write([]byte(head + "set next pattern: " + p + foot))
 }
 
 func (ui *UI) HandleRaw(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +67,7 @@ func (ui *UI) HandleBrowser(w http.ResponseWriter, r *http.Request) {
 	  <title>HashiCorp's Game of Life</title>
 	  <meta charset="utf-8">
 	  <style>
-	    body {background-color: #000}
+	    html {background-color: #000}
 	  </style>
 	</head>
 	<body>
