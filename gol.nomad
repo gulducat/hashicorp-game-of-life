@@ -65,8 +65,8 @@ job "gol" {
     }
   }
 
-  group "cells" {
-    count = (local.w * local.h) + 1
+  group "grid" {
+    count = local.w * local.h + 1
     restart {
       attempts = 10
       delay    = "5s"

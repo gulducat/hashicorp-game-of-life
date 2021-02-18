@@ -23,7 +23,7 @@ build:
 
 run: servers.map
 	nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" traefik.nomad >/dev/null
-	nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" seed.nomad >/dev/null
+	nomad run -var="consul_http_addr=http://$(shell awk '/$(SERVER)/ {print$$2}' servers.map):8500" gol.nomad >/dev/null
 
 ui:
 	while true; do \
