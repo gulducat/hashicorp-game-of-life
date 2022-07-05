@@ -13,3 +13,5 @@ using HashiCorp tools.
 * All cells’ statuses are stored by the seed for us to view.
 
 [HashiTalks presentation slides](https://docs.google.com/presentation/d/1VC7D6EYA2Z6ivHBX7RKJhc3ZyhEFFoCkAIA9ADt6U5A)
+
+Oh golly and it was [recorded](https://www.youtube.com/watch?v=P7gUhs6GroI) too.
